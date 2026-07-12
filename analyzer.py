@@ -4,6 +4,8 @@ import sys
 import json
 import datetime
 import platform
+import traceback
+
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -36,6 +38,13 @@ def map_mcp_to_groq_tool(mcp_tool):
     parameters = dict(mcp_tool.inputSchema)
     # Remove metadata fields that might confuse the model/API schema validator
     parameters.pop("$schema", None)
+    parameters.pop("additionalProperties", None)
+    
+    # Standardize 'number' to 'integer' for Groq compatibility
+    if "properties" in parameters:
+        for prop_name, prop_val in parameters["properties"].items():
+            if isinstance(prop_val, dict) and prop_val.get("type") == "number":
+                prop_val["type"] = "integer"
     
     return {
         "type": "function",
@@ -45,6 +54,7 @@ def map_mcp_to_groq_tool(mcp_tool):
             "parameters": parameters
         }
     }
+
 
 def compress_tool_output(name, output_text):
     """Parses tool output JSON and extracts only the essential info to drastically reduce token usage."""
@@ -374,6 +384,8 @@ async def start_worker():
                     
                 except Exception as ex:
                     print(f" -> [FAILED] Error processing '{repo_name}': {ex}")
+                    traceback.print_exc()
+
                     # Update status to FAILED with error message
                     await asyncio.to_thread(
                         job_queue.update_one,
