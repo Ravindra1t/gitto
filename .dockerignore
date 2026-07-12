@@ -1,0 +1,31 @@
+# Ignore python virtual environments
+.venv/
+venv/
+env/
+
+# Ignore local configuration and secrets
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+
+# Ignore Git directory and metadata
+.git/
+.gitignore
+
+# Ignore build artifacts and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Ignore project outputs and test scripts
+analysis_result.json
+check_db.py
+
+# Ignore Docker files
+Dockerfile
+.dockerignore

@@ -1,0 +1,30 @@
+# Ignore python virtual environments and dependencies
+.venv/
+venv/
+env/
+requirements-dev.txt
+
+# Ignore secrets and configs
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+repo_url.txt
+create_repo.py
+
+# Ignore Python caches and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Ignore Next.js build output and packages
+dashboard/.next/
+dashboard/node_modules/
+dashboard/.env.local
+
+# Ignore analysis results and testing utilities
+analysis_result.json
+check_db.py
