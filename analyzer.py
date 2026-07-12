@@ -134,8 +134,12 @@ async def analyze_repo(owner, repo, groq_client):
                 prs_list_for_llm.append({
                     "number": pr.get("number"),
                     "title": pr.get("title"),
-                    "author": pr.get("user", {}).get("login")
+                    "author": pr.get("user", {}).get("login"),
+                    "created_at": pr.get("created_at"),
+                    "closed_at": pr.get("closed_at"),
+                    "comments_count": pr.get("comments", 0)
                 })
+
 
             # Filter tools to only expose relevant ones to the LLM
             target_tools = {"get_pull_request_files", "get_pull_request_comments"}
@@ -144,7 +148,7 @@ async def analyze_repo(owner, repo, groq_client):
             ]
 
             # Construct messages
-            system_prompt = f"""You are an expert GitHub Pull Request Analyzer. Your goal is to analyze the last 50 merged pull requests of a repository and provide structured metrics and a qualitative summary.
+            system_prompt = f"""You are an expert GitHub Pull Request Analyzer. Your goal is to analyze the last 50 merged pull requests of a repository and provide structured metrics and a highly detailed, professional qualitative evaluation.
 
 You have access to the following tools to fetch details of the PRs:
 1. `get_pull_request_files`: Get the files changed in a PR. Use this to determine the files changed, addition/deletion lines (size), and file paths (domain: frontend/backend/devops).
@@ -153,7 +157,15 @@ You have access to the following tools to fetch details of the PRs:
 Please perform the following analysis for the 50 PRs provided:
 1. Classify each PR's size into a tier: Small (<100 lines changed), Medium (100-500 lines changed), or Large (>500 lines changed).
 2. Classify each PR's domain: Frontend (UI, React components, CSS, JS/TS source files), Backend (Server logic, APIs, Node scripts, renderer code, database configs), or DevOps (GitHub Actions, workflows, CI/CD configs, building scripts, package releases).
-3. Summarize why PRs get accepted or revised based on reviewer comments.
+3. Calculate Merge Velocity metrics comparing `created_at` and `closed_at` timestamps:
+   - Fast: Merged in less than 24 hours.
+   - Medium: Merged in 1 to 5 days.
+   - Slow: Merged in over 5 days.
+4. Calculate Discussion Density metrics based on `comments_count`:
+   - None: 0 comments.
+   - Low: 1 to 5 comments.
+   - High: More than 5 comments.
+5. Provide a long, detailed, and highly specific markdown summary (at least 3-4 paragraphs, 300-500 words) using clean markdown styling (headers, bold text, bullet points).
 
 To make an accurate assessment:
 - You MUST call `get_pull_request_files` and `get_pull_request_comments` on a sample of at least 5 to 10 PRs to understand the code composition and reviewer dynamics.
@@ -163,7 +175,9 @@ To make an accurate assessment:
 Your final response must be a single JSON object with the following keys:
 - 'size_tiers': A dictionary containing percentages of 'small', 'medium', and 'large' PRs (summing to 100.0).
 - 'domains': A dictionary containing percentages of 'frontend', 'backend', and 'devops' PRs (summing to 100.0).
-- 'llm_summaries': A paragraph summarizing reviewer feedback, common requests, and what makes a PR acceptable in this repository.
+- 'merge_velocity': A dictionary containing percentages of 'fast', 'medium', and 'slow' PRs (summing to 100.0).
+- 'discussion_density': A dictionary containing percentages of 'none', 'low', and 'high' PRs (summing to 100.0).
+- 'llm_summaries': A highly structured markdown text containing a detailed analysis of code patterns, reviewer feedback, common revision requests, and acceptability standards.
 
 Example output format:
 {{
@@ -177,9 +191,20 @@ Example output format:
     "backend": 10.0,
     "devops": 10.0
   }},
-  "llm_summaries": "PRs in this repository are accepted when they have clear test coverage, follow the established component style guide, and address edge cases highlighted in reviews. Common revision requests involve performance optimization, cleaning up unused variables, and splitting large PRs into smaller, logical chunks."
+  "merge_velocity": {{
+    "fast": 60.0,
+    "medium": 30.0,
+    "slow": 10.0
+  }},
+  "discussion_density": {{
+    "none": 50.0,
+    "low": 40.0,
+    "high": 10.0
+  }},
+  "llm_summaries": "### 1. Code Review Dynamics & Common Triggers\\nReviewers in this repository heavily emphasize clean architecture, strict linting, and proper testing coverage. Common revision triggers include:\\n- **Performance Overhead**: Concerns regarding inefficient renders or network requests.\\n- **Formatting and Styles**: Missing typings or style rule violations.\\n\\n### 2. Standards for Acceptability\\nPRs are generally accepted and merged once all automated checks pass and at least one core reviewer gives a detailed sign-off. Code changes in this repository are highly frontend-centric, focusing on React components and state management.\\n\\n### 3. Recommended Workflow\\nFor new contributors, we recommend:\\n1. Running local tests before push.\\n2. Breaking down code refactors into smaller, single-file pull requests to speed up the review cycle."
 }}
 """
+
 
             user_content = f"Here are the last {len(prs_list_for_llm)} merged pull requests for the repository {owner}/{repo}:\n\n"
             user_content += json.dumps(prs_list_for_llm, indent=2)
@@ -327,9 +352,12 @@ async def start_worker():
                         "repo_name": repo_name,
                         "size_tiers": analysis_result.get("size_tiers"),
                         "domains": analysis_result.get("domains"),
+                        "merge_velocity": analysis_result.get("merge_velocity"),
+                        "discussion_density": analysis_result.get("discussion_density"),
                         "llm_summaries": analysis_result.get("llm_summaries"),
                         "analyzed_at": datetime.datetime.now(datetime.timezone.utc)
                     }
+
                     
                     # Save report to PR_Reports collection (upsert)
                     await asyncio.to_thread(

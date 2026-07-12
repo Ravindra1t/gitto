@@ -1,34 +1,70 @@
 import Link from 'next/link';
 import clientPromise from '../../../../lib/mongodb';
-import { SizeChart, DomainChart } from '../../../../components/ReportChart';
-import { GitPullRequest, Calendar, ArrowLeft, RefreshCw, Loader2, Database } from 'lucide-react';
+import { SizeChart, DomainChart, VelocityChart, DiscussionChart } from '../../../../components/ReportChart';
+import { GitPullRequest, Calendar, ArrowLeft, RefreshCw, Loader2, Database, HelpCircle } from 'lucide-react';
+
+// Lightweight server-side markdown parser
+function renderMarkdown(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-3">
+      {lines.map((line, idx) => {
+        const cleanLine = line.trim();
+        
+        // Headers
+        if (cleanLine.startsWith('### ')) {
+          return (
+            <h3 key={idx} className="text-xs font-mono uppercase tracking-wider font-extrabold text-zinc-900 mt-6 mb-2 border-b border-zinc-100 pb-1.5">
+              {cleanLine.slice(4)}
+            </h3>
+          );
+        }
+        
+        // Bullet points
+        if (cleanLine.startsWith('- ') || cleanLine.startsWith('* ')) {
+          const content = cleanLine.slice(2);
+          const parts = content.split('**');
+          return (
+            <li key={idx} className="ml-4 list-disc text-xs text-zinc-600 my-1 leading-relaxed">
+              {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-zinc-950">{part}</strong> : part)}
+            </li>
+          );
+        }
+        
+        // Empty lines
+        if (cleanLine === '') {
+          return <div key={idx} className="h-1.5" />;
+        }
+        
+        // Standard paragraphs with bold text support
+        const parts = cleanLine.split('**');
+        return (
+          <p key={idx} className="text-xs text-zinc-600 leading-relaxed">
+            {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-zinc-950">{part}</strong> : part)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export default async function ReportPage({ params }) {
-  // Await params as required by Next.js 15+ App Router
   const { owner, repo } = await params;
   const repoId = `${owner}/${repo}`.toLowerCase();
 
   let report = null;
-  let job = null;
   let connectionError = false;
 
   try {
     const client = await clientPromise;
     const db = client.db('github_pr_analyzer');
-
-    // Fetch report directly on the server
     report = await db.collection('PR_Reports').findOne({ _id: repoId });
-
-    if (!report) {
-      // If report is missing, check if it's currently in the job queue
-      job = await db.collection('Job_Queue').findOne({ _id: repoId });
-    }
   } catch (error) {
     console.error('Error in Server Component data load:', error);
     connectionError = true;
   }
 
-  // Format date helper
   const formatDate = (dateVal) => {
     if (!dateVal) return 'Unknown';
     const date = new Date(dateVal);
@@ -41,21 +77,21 @@ export default async function ReportPage({ params }) {
     });
   };
 
-  // 1. Connection/Database Error State
+  // 1. Connection Error
   if (connectionError) {
     return (
-      <div className="flex-grow flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md border border-red-900/50 bg-red-950/10 rounded-lg p-6 text-center space-y-4">
-          <div className="inline-flex p-3 rounded-full bg-red-950/30 text-red-400">
+      <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
+        <div className="w-full max-w-md border border-zinc-200 bg-white rounded-lg p-6 text-center space-y-4 shadow-sm">
+          <div className="inline-flex p-3 rounded-full bg-zinc-50 text-zinc-600 border border-zinc-100">
             <Database className="w-6 h-6" />
           </div>
-          <h2 className="text-sm font-mono uppercase text-red-400 font-bold">Connection Failed</h2>
-          <p className="text-xs text-zinc-400 leading-relaxed">
-            Could not establish a connection to the MongoDB Atlas cluster. Please check your credentials and try again.
+          <h2 className="text-xs font-mono uppercase text-zinc-900 font-bold">Connection Failed</h2>
+          <p className="text-xs text-zinc-500 leading-relaxed">
+            Could not establish a connection to the MongoDB Atlas cluster. Please check network logs.
           </p>
           <Link
             href="/"
-            className="inline-flex h-9 px-4 items-center justify-center bg-zinc-100 hover:bg-zinc-200 text-zinc-950 text-xs font-mono font-bold rounded transition-colors"
+            className="inline-flex h-9 px-4 items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono font-bold rounded transition-colors"
           >
             Go Back
           </Link>
@@ -67,38 +103,36 @@ export default async function ReportPage({ params }) {
   // 2. Cache Miss / Loading State
   if (!report) {
     return (
-      <div className="flex-grow flex items-center justify-center px-4 py-12">
-        {/* Zero-JS Auto-Refresh: Reloads the page every 10 seconds to check if report is ready */}
+      <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
         <meta httpEquiv="refresh" content="10" />
-
-        <div className="w-full max-w-md border border-border bg-zinc-950/60 backdrop-blur-md rounded-lg p-8 text-center space-y-5">
-          <div className="inline-flex p-3 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 animate-spin">
+        <div className="w-full max-w-md border border-zinc-200 bg-white rounded-lg p-8 text-center space-y-5 shadow-sm">
+          <div className="inline-flex p-3 rounded-full bg-zinc-50 border border-zinc-100 text-zinc-900 animate-spin">
             <Loader2 className="w-6 h-6" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-sm font-mono uppercase text-zinc-100 font-bold">Analysis in Progress</h2>
-            <p className="text-xs text-zinc-400 font-mono text-zinc-500">
+          <div className="space-y-1">
+            <h2 className="text-xs font-mono uppercase text-zinc-900 font-bold">Analysis in Progress</h2>
+            <p className="text-[11px] text-zinc-500 font-mono">
               Target: {owner}/{repo}
             </p>
           </div>
-          <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
+          <p className="text-xs text-zinc-500 leading-relaxed max-w-xs mx-auto">
             Our background worker has picked up this repository and is currently analyzing the last 50 merged pull requests. This usually takes 1 to 2 minutes.
           </p>
           <div className="flex flex-col gap-2 pt-2">
             <Link
               href={`/report/${owner}/${repo}`}
-              className="inline-flex h-9 items-center justify-center border border-zinc-800 hover:bg-zinc-900 text-zinc-200 text-xs font-mono font-bold rounded transition-colors gap-2"
+              className="inline-flex h-9 items-center justify-center border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-mono font-bold rounded transition-colors gap-2"
             >
               <RefreshCw className="w-3 h-3" /> Manually Refresh
             </Link>
             <Link
               href="/"
-              className="inline-flex h-9 items-center justify-center text-zinc-500 hover:text-zinc-300 text-xs font-mono transition-colors"
+              className="inline-flex h-9 items-center justify-center text-zinc-400 hover:text-zinc-600 text-xs font-mono transition-colors"
             >
               Cancel
             </Link>
           </div>
-          <div className="text-[10px] text-zinc-600 font-mono pt-2">
+          <div className="text-[10px] text-zinc-400 font-mono pt-2">
             Page will auto-refresh every 10 seconds.
           </div>
         </div>
@@ -106,79 +140,119 @@ export default async function ReportPage({ params }) {
     );
   }
 
-  // 3. Cache Hit / Report Render State
+  // 3. Report Screen
   return (
-    <div className="flex-grow bg-zinc-950 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex-grow bg-zinc-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
         
-        {/* Header Breadcrumbs */}
+        {/* Navigation & Header */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-mono text-zinc-400 hover:text-zinc-100 transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-mono text-zinc-500 hover:text-zinc-900 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Search
           </Link>
-          <span className="text-[10px] font-mono text-zinc-500 flex items-center gap-1.5">
+          <span className="text-[10px] font-mono text-zinc-400 border border-zinc-200 bg-white px-2 py-0.5 rounded flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Cached Report
           </span>
         </div>
 
-        {/* Title Block */}
-        <div className="border border-border bg-zinc-950/60 rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1.5">
+        {/* Repository info banner */}
+        <div className="border border-zinc-200 bg-white rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+          <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-300">
+              <div className="p-1.5 bg-zinc-50 border border-zinc-200 rounded text-zinc-700">
                 <GitPullRequest className="w-4 h-4" />
               </div>
-              <h1 className="text-lg font-mono font-bold tracking-tight text-zinc-100">
+              <h1 className="text-md font-mono font-bold tracking-tight text-zinc-900">
                 {report.repo_name}
               </h1>
             </div>
-            <p className="text-xs text-zinc-500">
-              PR Analysis Report for the last 50 merged pull requests.
+            <p className="text-xs text-zinc-400">
+              PR Analysis Report based on the last 50 merged pull requests.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 sm:self-center">
-            <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 sm:self-center">
+            <Calendar className="w-3.5 h-3.5 text-zinc-400" />
             <span>Analyzed: {formatDate(report.analyzed_at)}</span>
           </div>
         </div>
 
-        {/* Metrics Grid */}
+        {/* 4-Chart Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sizes Chart Card */}
-          <div className="border border-border bg-zinc-950/60 rounded-lg p-6 space-y-4">
-            <div className="border-b border-border pb-3">
-              <h2 className="text-xs font-mono uppercase text-zinc-400 font-bold">
-                Pull Request Size Tiers
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                PR Size Tiers
               </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Lines Changed</span>
             </div>
             <SizeChart data={report.size_tiers} />
           </div>
 
           {/* Domains Chart Card */}
-          <div className="border border-border bg-zinc-950/60 rounded-lg p-6 space-y-4">
-            <div className="border-b border-border pb-3">
-              <h2 className="text-xs font-mono uppercase text-zinc-400 font-bold">
-                Codebase Domains Affected
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                Codebase Domains
               </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Affected Scope</span>
             </div>
             <DomainChart data={report.domains} />
+          </div>
+
+          {/* Velocity Chart Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                Merge Velocity
+              </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Duration Tiers</span>
+            </div>
+            {report.merge_velocity ? (
+              <VelocityChart data={report.merge_velocity} />
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
+                <HelpCircle className="w-5 h-5 text-zinc-300" />
+                <span>No velocity data</span>
+                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Discussion Density Chart Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                Discussion Density
+              </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Review Comments</span>
+            </div>
+            {report.discussion_density ? (
+              <DiscussionChart data={report.discussion_density} />
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
+                <HelpCircle className="w-5 h-5 text-zinc-300" />
+                <span>No discussion data</span>
+                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Qualitative LLM Summary Section */}
-        <div className="border border-border bg-zinc-950/60 rounded-lg p-6 space-y-4">
-          <div className="border-b border-border pb-3">
-            <h2 className="text-xs font-mono uppercase text-zinc-400 font-bold">
-              Reviewer Dynamics & Feedback Summary
+        <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+          <div className="border-b border-zinc-100 pb-3">
+            <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+              Reviewer Dynamics & Code Patterns
             </h2>
           </div>
-          <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line font-sans">
-            {report.llm_summaries}
+          <div className="font-sans">
+            {renderMarkdown(report.llm_summaries)}
           </div>
         </div>
 
