@@ -406,6 +406,15 @@ async def start_worker():
     job_queue = db["Job_Queue"]
     pr_reports = db["PR_Reports"]
     
+    # Recover any crashed/stuck processing jobs back to PENDING on startup
+    recovered = job_queue.update_many(
+        {"status": "PROCESSING"},
+        {"$set": {"status": "PENDING", "started_at": None}}
+    )
+    if recovered.modified_count > 0:
+        print(f" -> [RECOVERY] Reset {recovered.modified_count} stuck 'PROCESSING' jobs back to 'PENDING'.")
+
+    
     # Initialize Groq client
     groq_client = Groq(api_key=GROQ_API_KEY)
     
