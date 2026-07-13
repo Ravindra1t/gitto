@@ -170,7 +170,32 @@ async def execute_single_tool(session, tool_call, owner, repo):
         "content": compressed_output
     }
 
+async def call_groq_with_retry(groq_client, model_name, messages, tools, tool_choice="auto", max_retries=5, base_delay=3):
+    """Executes a Groq chat completion call with automatic exponential backoff for rate limit (429) errors."""
+    for attempt in range(max_retries):
+        try:
+            # Run the synchronous Groq API call in a thread pool to avoid blocking the event loop
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
+                model=model_name,
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice
+            )
+            return response
+        except Exception as e:
+            err_msg = str(e).lower()
+            is_rate_limit = "rate limit" in err_msg or "429" in err_msg
+            
+            if is_rate_limit and attempt < max_retries - 1:
+                sleep_time = base_delay * (2 ** attempt)  # Backoff: 3s, 6s, 12s, 24s...
+                print(f" -> [RATE LIMIT] Groq rate limit hit. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
+                await asyncio.sleep(sleep_time)
+            else:
+                raise e
+
 async def analyze_repo(owner, repo, groq_client, db):
+
 
     """Runs the full MCP + Groq analysis for a specific repository and returns the parsed JSON result."""
     print(f" -> Launching GitHub MCP server subprocess for {owner}/{repo}...")
@@ -313,9 +338,9 @@ Example output format:
                     await asyncio.to_thread(db["Job_Queue"].delete_one, {"_id": repo_id})
                     raise Exception("Analysis cancelled by user")
 
-                response = groq_client.chat.completions.create(
-
-                    model=model_name,
+                response = await call_groq_with_retry(
+                    groq_client,
+                    model_name=model_name,
                     messages=messages,
                     tools=filtered_groq_tools,
                     tool_choice="auto"
