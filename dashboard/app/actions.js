@@ -1,25 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import clientPromise from '../lib/mongodb';
 
-// Helper function to get or create a persistent user ID for session locks
-async function getOrCreateUserId() {
-  const cookieStore = await cookies();
-  let userId = cookieStore.get('userId')?.value;
-  if (!userId) {
-    userId = crypto.randomUUID();
-    cookieStore.set('userId', userId, {
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    });
-  }
-  return userId;
-}
 
 // Helper function to extract owner and repo from various inputs
 function parseRepoName(input) {
@@ -74,22 +57,6 @@ export async function analyzeRepository(formData) {
       redirect(`/report/${owner}/${repo}`);
     }
 
-    // Get current user's session ID
-    const userId = await getOrCreateUserId();
-
-    // Check if this user already has an active job in progress (PENDING or PROCESSING)
-    const activeUserJob = await db.collection('Job_Queue').findOne({
-      userId: userId,
-      status: { $in: ['PENDING', 'PROCESSING'] }
-    });
-
-    if (activeUserJob) {
-      // If the active job is for a DIFFERENT repository, block the user
-      if (activeUserJob._id !== repoId) {
-        redirect('/?error=active_job_exists');
-      }
-    }
-
     // Check if the job already exists in the queue and what its status is
     const existingJob = await db.collection('Job_Queue').findOne({ _id: repoId });
 
@@ -102,7 +69,6 @@ export async function analyzeRepository(formData) {
             _id: repoId,
             repo_name: `${owner}/${repo}`, // Preserve original casing for the API call
             status: 'PENDING',
-            userId: userId, // Bind the job lock to this user
             created_at: new Date(),
             error: null,
             failed_at: null
@@ -138,14 +104,13 @@ export async function cancelAnalysis(formData) {
   try {
     const client = await clientPromise;
     const db = client.db('github_pr_analyzer');
-    const userId = await getOrCreateUserId();
     
-    // Set status to CANCELLED to signal the worker to terminate, only if it belongs to this user
+    // Set status to CANCELLED to signal the worker to terminate
     await db.collection('Job_Queue').updateOne(
-      { _id: repoId, userId: userId },
+      { _id: repoId },
       { $set: { status: 'CANCELLED' } }
     );
-    console.log(`[CANCELLED] Job for '${repoId}' (User: ${userId}) marked as CANCELLED to signal worker.`);
+    console.log(`[CANCELLED] Job for '${repoId}' marked as CANCELLED to signal worker.`);
   } catch (error) {
     console.error('Error in cancelAnalysis Server Action:', error);
   }

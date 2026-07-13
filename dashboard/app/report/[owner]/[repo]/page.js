@@ -4,6 +4,7 @@ import ReportLoader from '../../../../components/ReportLoader';
 import { SizeChart, DomainChart, VelocityChart, DiscussionChart } from '../../../../components/ReportChart';
 import { GitPullRequest, Calendar, ArrowLeft, Database, HelpCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
 
 
 // Lightweight server-side markdown parser
