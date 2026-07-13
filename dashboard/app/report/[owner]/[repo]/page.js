@@ -63,6 +63,27 @@ export default async function ReportPage({ params }) {
     const client = await clientPromise;
     const db = client.db('github_pr_analyzer');
     report = await db.collection('PR_Reports').findOne({ _id: repoId });
+
+    if (!report) {
+      // Direct page load check: if cache miss, check if there's a failed job in the queue
+      const existingJob = await db.collection('Job_Queue').findOne({ _id: repoId });
+      if (existingJob && existingJob.status === 'FAILED') {
+        // Reset failed job back to PENDING so the worker runs it again
+        await db.collection('Job_Queue').updateOne(
+          { _id: repoId },
+          {
+            $set: {
+              status: 'PENDING',
+              repo_name: `${owner}/${repo}`,
+              created_at: new Date(),
+              error: null,
+              failed_at: null
+            }
+          }
+        );
+        console.log(`[AUTO-RESET] Reset stuck failed job for '${repoId}' to PENDING.`);
+      }
+    }
   } catch (error) {
     console.error('Error in Server Component data load:', error);
     connectionError = true;
