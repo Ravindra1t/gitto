@@ -48,6 +48,7 @@ export default async function Home({ searchParams }) {
                 <span>
                   {errorType === 'invalid_repo' && 'Invalid format. Use "owner/repo" or a GitHub link.'}
                   {errorType === 'db_error' && 'Failed to connect to database. Try again.'}
+                  {errorType === 'active_job_exists' && 'You already have another active analysis running. Please cancel it first.'}
                 </span>
               </div>
             )}

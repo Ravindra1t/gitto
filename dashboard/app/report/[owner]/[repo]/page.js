@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import clientPromise from '../../../../lib/mongodb';
-import { cancelAnalysis } from '../../../actions';
+import ReportLoader from '../../../../components/ReportLoader';
 import { SizeChart, DomainChart, VelocityChart, DiscussionChart } from '../../../../components/ReportChart';
-import { GitPullRequest, Calendar, ArrowLeft, RefreshCw, Loader2, Database, HelpCircle } from 'lucide-react';
+import { GitPullRequest, Calendar, ArrowLeft, Database, HelpCircle } from 'lucide-react';
+
 
 
 // Lightweight server-side markdown parser
@@ -104,47 +105,7 @@ export default async function ReportPage({ params }) {
 
   // 2. Cache Miss / Loading State
   if (!report) {
-    return (
-      <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
-        <meta httpEquiv="refresh" content="10" />
-        <div className="w-full max-w-md border border-zinc-200 bg-white rounded-lg p-8 text-center space-y-5 shadow-sm">
-          <div className="inline-flex p-3 rounded-full bg-zinc-50 border border-zinc-100 text-zinc-900 animate-spin">
-            <Loader2 className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-xs font-mono uppercase text-zinc-900 font-bold">Analysis in Progress</h2>
-            <p className="text-[11px] text-zinc-500 font-mono">
-              Target: {owner}/{repo}
-            </p>
-          </div>
-          <p className="text-xs text-zinc-500 leading-relaxed max-w-xs mx-auto">
-            Our background worker has picked up this repository and is currently analyzing the last 50 merged pull requests. This usually takes 1 to 2 minutes.
-          </p>
-          <div className="flex flex-col gap-2 pt-2">
-            <Link
-              href={`/report/${owner}/${repo}`}
-              className="inline-flex h-9 items-center justify-center border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-mono font-bold rounded transition-colors gap-2"
-            >
-              <RefreshCw className="w-3 h-3" /> Manually Refresh
-            </Link>
-            <form action={cancelAnalysis} className="w-full">
-              <input type="hidden" name="owner" value={owner} />
-              <input type="hidden" name="repo" value={repo} />
-              <button
-                type="submit"
-                className="w-full inline-flex h-9 items-center justify-center text-zinc-400 hover:text-zinc-600 text-xs font-mono transition-colors cursor-pointer border border-transparent hover:border-zinc-200 rounded"
-              >
-                Cancel Analysis
-              </button>
-            </form>
-
-          </div>
-          <div className="text-[10px] text-zinc-400 font-mono pt-2">
-            Page will auto-refresh every 10 seconds.
-          </div>
-        </div>
-      </div>
-    );
+    return <ReportLoader owner={owner} repo={repo} />;
   }
 
   // 3. Report Screen
