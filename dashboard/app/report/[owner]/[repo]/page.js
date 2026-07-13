@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import clientPromise from '../../../../lib/mongodb';
+import { cancelAnalysis } from '../../../actions';
 import { SizeChart, DomainChart, VelocityChart, DiscussionChart } from '../../../../components/ReportChart';
 import { GitPullRequest, Calendar, ArrowLeft, RefreshCw, Loader2, Database, HelpCircle } from 'lucide-react';
+
 
 // Lightweight server-side markdown parser
 function renderMarkdown(text) {
@@ -125,12 +127,17 @@ export default async function ReportPage({ params }) {
             >
               <RefreshCw className="w-3 h-3" /> Manually Refresh
             </Link>
-            <Link
-              href="/"
-              className="inline-flex h-9 items-center justify-center text-zinc-400 hover:text-zinc-600 text-xs font-mono transition-colors"
-            >
-              Cancel
-            </Link>
+            <form action={cancelAnalysis} className="w-full">
+              <input type="hidden" name="owner" value={owner} />
+              <input type="hidden" name="repo" value={repo} />
+              <button
+                type="submit"
+                className="w-full inline-flex h-9 items-center justify-center text-zinc-400 hover:text-zinc-600 text-xs font-mono transition-colors cursor-pointer border border-transparent hover:border-zinc-200 rounded"
+              >
+                Cancel Analysis
+              </button>
+            </form>
+
           </div>
           <div className="text-[10px] text-zinc-400 font-mono pt-2">
             Page will auto-refresh every 10 seconds.

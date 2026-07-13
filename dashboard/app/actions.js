@@ -82,3 +82,28 @@ export async function analyzeRepository(formData) {
     redirect('/?error=db_error');
   }
 }
+
+export async function cancelAnalysis(formData) {
+  const owner = formData.get('owner');
+  const repo = formData.get('repo');
+  
+  if (!owner || !repo) {
+    redirect('/');
+  }
+
+  const repoId = `${owner}/${repo}`.toLowerCase();
+
+  try {
+    const client = await clientPromise;
+    const db = client.db('github_pr_analyzer');
+    
+    // Delete the job from the queue
+    await db.collection('Job_Queue').deleteOne({ _id: repoId });
+    console.log(`[CANCELLED] Job for '${repoId}' kicked off the queue.`);
+  } catch (error) {
+    console.error('Error in cancelAnalysis Server Action:', error);
+  }
+
+  redirect('/');
+}
+

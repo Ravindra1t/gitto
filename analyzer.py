@@ -62,24 +62,55 @@ def compress_tool_output(name, output_text):
         data = json.loads(output_text)
         if name == "get_pull_request_files" and isinstance(data, list):
             compressed = []
-            for f in data:
+            # Keep only the first 10 files to prevent token bloat
+            for f in data[:10]:
                 compressed.append({
                     "filename": f.get("filename"),
                     "additions": f.get("additions"),
                     "deletions": f.get("deletions")
                 })
+            if len(data) > 10:
+                # Add a summary node for the remaining files
+                remaining_additions = sum(f.get("additions", 0) for f in data[10:])
+                remaining_deletions = sum(f.get("deletions", 0) for f in data[10:])
+                compressed.append({
+                    "filename": f"...and {len(data) - 10} other files",
+                    "additions": remaining_additions,
+                    "deletions": remaining_deletions
+                })
             return json.dumps(compressed, indent=2)
+            
         elif name == "get_pull_request_comments" and isinstance(data, list):
             compressed = []
+            bot_keywords = ["github-actions", "sonarcloud", "vercel", "netlify", "coveralls", "lgtm", "bot", "jenkins"]
+            
             for c in data:
+                author = c.get("user", {}).get("login", "").lower()
+                body = c.get("body", "")
+                
+                # Filter out bots and automated noise
+                if any(k in author for k in bot_keywords) or any(k in body.lower() for k in bot_keywords):
+                    continue
+                    
+                # Skip trivial comments under 10 characters (e.g. "done", "thanks", "lgtm")
+                clean_body = body.strip()
+                if len(clean_body) < 10:
+                    continue
+                
                 compressed.append({
                     "user": c.get("user", {}).get("login"),
-                    "body": c.get("body")
+                    "body": clean_body[:150] + "..." if len(clean_body) > 150 else clean_body
                 })
+                
+                # Limit to top 15 comments per PR to prevent context blowup
+                if len(compressed) >= 15:
+                    break
+                    
             return json.dumps(compressed, indent=2)
     except Exception:
         pass
-    return output_text[:2000] + "...\n[TRUNCATED]" if len(output_text) > 2000 else output_text
+    return output_text[:1000] + "...\n[TRUNCATED]" if len(output_text) > 1000 else output_text
+
 
 async def fetch_merged_prs(session, owner, repo, count):
     """Fetches the last N merged PRs from the target repository using the search_issues MCP tool."""
@@ -98,7 +129,49 @@ async def fetch_merged_prs(session, owner, repo, count):
     print(f" -> Found {len(items)} merged pull requests.")
     return items
 
+async def execute_single_tool(session, tool_call, owner, repo):
+    name = tool_call.function.name
+    try:
+        args = json.loads(tool_call.function.arguments)
+    except Exception as parse_err:
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "name": name,
+            "content": f"Error parsing arguments: {str(parse_err)}"
+        }
+
+    # Inject owner/repo into args if omitted by the model
+    if "owner" not in args:
+        args["owner"] = owner
+    if "repo" not in args:
+        args["repo"] = repo
+        
+    try:
+        # Execute the tool via MCP Session
+        tool_result = await session.call_tool(name, args)
+        text_blocks = []
+        for content_block in tool_result.content:
+            if hasattr(content_block, "text"):
+                text_blocks.append(content_block.text)
+            elif isinstance(content_block, dict) and "text" in content_block:
+                text_blocks.append(content_block["text"])
+            else:
+                text_blocks.append(str(content_block))
+        tool_output = "\n".join(text_blocks)
+    except Exception as e:
+        tool_output = f"Error executing tool: {type(e).__name__}: {str(e)}"
+    
+    compressed_output = compress_tool_output(name, tool_output)
+    return {
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "name": name,
+        "content": compressed_output
+    }
+
 async def analyze_repo(owner, repo, groq_client):
+
     """Runs the full MCP + Groq analysis for a specific repository and returns the parsed JSON result."""
     print(f" -> Launching GitHub MCP server subprocess for {owner}/{repo}...")
     
@@ -225,7 +298,7 @@ Example output format:
                 {"role": "user", "content": user_content}
             ]
 
-            model_name = "llama-3.3-70b-versatile"
+            model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
             print(f" -> Starting analysis with {model_name}...")
             
             # Tool-calling loop
@@ -260,37 +333,14 @@ Example output format:
                 
                 if message.tool_calls:
                     print(f" -> [Turn {turn + 1}] Model requested {len(message.tool_calls)} tool call(s)")
-                    for tool_call in message.tool_calls:
-                        name = tool_call.function.name
-                        args = json.loads(tool_call.function.arguments)
-                        # Inject owner/repo into args if omitted by the model
-                        if "owner" not in args:
-                            args["owner"] = owner
-                        if "repo" not in args:
-                            args["repo"] = repo
-                            
-                        try:
-                            # Execute the tool via MCP Session
-                            tool_result = await session.call_tool(name, args)
-                            text_blocks = []
-                            for content_block in tool_result.content:
-                                if hasattr(content_block, "text"):
-                                    text_blocks.append(content_block.text)
-                                elif isinstance(content_block, dict) and "text" in content_block:
-                                    text_blocks.append(content_block["text"])
-                                else:
-                                    text_blocks.append(str(content_block))
-                            tool_output = "\n".join(text_blocks)
-                        except Exception as e:
-                            tool_output = f"Error executing tool: {type(e).__name__}: {str(e)}"
-                        
-                        compressed_output = compress_tool_output(name, tool_output)
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": name,
-                            "content": compressed_output
-                        })
+                    # Run all requested tool calls concurrently in parallel
+                    tasks = [
+                        execute_single_tool(session, tc, owner, repo)
+                        for tc in message.tool_calls
+                    ]
+                    tool_messages = await asyncio.gather(*tasks)
+                    messages.extend(tool_messages)
+
                 else:
                     print(" -> Model analysis loop completed. Parsing final JSON response...")
                     # Parse the final output as JSON
