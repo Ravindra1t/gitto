@@ -56,19 +56,27 @@ export async function analyzeRepository(formData) {
       redirect(`/report/${owner}/${repo}`);
     }
 
-    // CACHE MISS: Add job to the Job_Queue collection so the worker loop picks it up
-    await db.collection('Job_Queue').updateOne(
-      { _id: repoId },
-      {
-        $setOnInsert: {
-          _id: repoId,
-          repo_name: `${owner}/${repo}`, // Preserve original casing for the API call
-          status: 'PENDING',
-          created_at: new Date()
-        }
-      },
-      { upsert: true }
-    );
+    // Check if the job already exists in the queue and what its status is
+    const existingJob = await db.collection('Job_Queue').findOne({ _id: repoId });
+
+    if (!existingJob || existingJob.status === 'FAILED') {
+      // CACHE MISS or FAILED job: Add/Reset job status to PENDING
+      await db.collection('Job_Queue').updateOne(
+        { _id: repoId },
+        {
+          $set: {
+            _id: repoId,
+            repo_name: `${owner}/${repo}`, // Preserve original casing for the API call
+            status: 'PENDING',
+            created_at: new Date(),
+            error: null,
+            failed_at: null
+          }
+        },
+        { upsert: true }
+      );
+    }
+
 
     // Redirect to the report page which will display a loading/in-progress state
     redirect(`/report/${owner}/${repo}`);
