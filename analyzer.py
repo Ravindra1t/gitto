@@ -480,13 +480,35 @@ async def start_worker():
                     print(f" -> [FAILED] Error processing '{repo_name}': {ex}")
                     traceback.print_exc()
 
+                    # Format a clean, user-friendly error message
+                    error_message = str(ex)
+                    
+                    # Resolve underlying cause if wrapped in an ExceptionGroup (common in AnyIO task groups)
+                    try:
+                        if hasattr(ex, "exceptions") and ex.exceptions:
+                            underlying_err = ex.exceptions[0]
+                            error_message = str(underlying_err)
+                    except Exception:
+                        pass
+                    
+                    # Clean up common API errors
+                    error_message_lower = error_message.lower()
+                    if "rate limit" in error_message_lower or "429" in error_message_lower:
+                        if "tpd" in error_message_lower:
+                            # Try to extract the cooldown message if present
+                            error_message = "Groq Daily Rate Limit (TPD) reached. Please wait about 10-15 minutes for the quota to reset."
+                        else:
+                            error_message = "Groq API rate limit reached. Please try again in a few seconds."
+                    elif "analysis cancelled" in error_message_lower:
+                        error_message = "Analysis cancelled by user."
+
                     # Update status to FAILED with error message
                     await asyncio.to_thread(
                         job_queue.update_one,
                         {"_id": job["_id"]},
                         {"$set": {
                             "status": "FAILED",
-                            "error": str(ex),
+                            "error": error_message,
                             "failed_at": datetime.datetime.now(datetime.timezone.utc)
                         }}
                     )
