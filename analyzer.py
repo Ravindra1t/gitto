@@ -170,7 +170,7 @@ async def execute_single_tool(session, tool_call, owner, repo):
         "content": compressed_output
     }
 
-async def analyze_repo(owner, repo, groq_client):
+async def analyze_repo(owner, repo, groq_client, db):
 
     """Runs the full MCP + Groq analysis for a specific repository and returns the parsed JSON result."""
     print(f" -> Launching GitHub MCP server subprocess for {owner}/{repo}...")
@@ -305,7 +305,16 @@ Example output format:
             # Tool-calling loop
             max_turns = 15
             for turn in range(max_turns):
+                # Check if this job has been cancelled in the database
+                repo_id = f"{owner}/{repo}".lower()
+                job_doc = await asyncio.to_thread(db["Job_Queue"].find_one, {"_id": repo_id})
+                if job_doc and job_doc.get("status") == "CANCELLED":
+                    print(f" -> [CANCELLED] Analysis for {repo_id} was cancelled by user. Terminating loop immediately.")
+                    await asyncio.to_thread(db["Job_Queue"].delete_one, {"_id": repo_id})
+                    raise Exception("Analysis cancelled by user")
+
                 response = groq_client.chat.completions.create(
+
                     model=model_name,
                     messages=messages,
                     tools=filtered_groq_tools,
@@ -405,7 +414,7 @@ async def start_worker():
                 
                 try:
                     # Run the actual PR analysis
-                    analysis_result = await analyze_repo(owner, repo, groq_client)
+                    analysis_result = await analyze_repo(owner, repo, groq_client, db)
                     
                     # Construct report document
                     report_document = {

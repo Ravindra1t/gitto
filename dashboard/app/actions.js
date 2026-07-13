@@ -105,9 +105,12 @@ export async function cancelAnalysis(formData) {
     const client = await clientPromise;
     const db = client.db('github_pr_analyzer');
     
-    // Delete the job from the queue
-    await db.collection('Job_Queue').deleteOne({ _id: repoId });
-    console.log(`[CANCELLED] Job for '${repoId}' kicked off the queue.`);
+    // Set status to CANCELLED to signal the worker to terminate
+    await db.collection('Job_Queue').updateOne(
+      { _id: repoId },
+      { $set: { status: 'CANCELLED' } }
+    );
+    console.log(`[CANCELLED] Job for '${repoId}' marked as CANCELLED to signal worker.`);
   } catch (error) {
     console.error('Error in cancelAnalysis Server Action:', error);
   }
