@@ -93,7 +93,7 @@ export async function analyzeRepository(formData) {
     // Check if the job already exists in the queue and what its status is
     const existingJob = await db.collection('Job_Queue').findOne({ _id: repoId });
 
-    if (!existingJob || existingJob.status === 'FAILED') {
+    if (!existingJob || existingJob.status === 'FAILED' || existingJob.status === 'CANCELLED') {
       // CACHE MISS or FAILED job: Add/Reset job status to PENDING
       await db.collection('Job_Queue').updateOne(
         { _id: repoId },

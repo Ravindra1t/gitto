@@ -67,7 +67,7 @@ export default async function ReportPage({ params }) {
     if (!report) {
       // Direct page load check: if cache miss, check if there's a failed job in the queue
       const existingJob = await db.collection('Job_Queue').findOne({ _id: repoId });
-      if (existingJob && existingJob.status === 'FAILED') {
+      if (existingJob && (existingJob.status === 'FAILED' || existingJob.status === 'CANCELLED')) {
         // Reset failed job back to PENDING so the worker runs it again
         await db.collection('Job_Queue').updateOne(
           { _id: repoId },
