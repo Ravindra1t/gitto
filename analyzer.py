@@ -311,12 +311,19 @@ async def analyze_repo(owner, repo, llm_client, model_name, db):
 
                 pr_num = pr.get("number")
                 print(f" -> Programmatically fetching details for PR #{pr_num} ({idx + 1}/5)...")
-                details = await fetch_pr_details_in_code(session, owner, repo, pr_num)
-                detailed_pr_data.append({
-                    "number": pr_num,
-                    "title": pr.get("title"),
-                    "details": details
-                })
+                try:
+                    details = await fetch_pr_details_in_code(session, owner, repo, pr_num)
+                    detailed_pr_data.append({
+                        "number": pr_num,
+                        "title": pr.get("title"),
+                        "details": details
+                    })
+                except Exception as pr_err:
+                    print(f" -> [ERROR] Failed to fetch details for PR #{pr_num}: {pr_err}")
+                    traceback.print_exc()
+                    print(" -> Gracefully skipping to next PR.")
+                    continue
+                
                 # Sleeping 4.5s to strictly respect rate limits
                 print(" -> Sleeping for 4.5s to respect rate limits...")
                 await asyncio.sleep(4.5)
