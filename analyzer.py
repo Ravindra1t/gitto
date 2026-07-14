@@ -186,10 +186,19 @@ async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choi
             return response
         except Exception as e:
             err_msg = str(e).lower()
-            is_rate_limit = "rate limit" in err_msg or "429" in err_msg or "resource_exhausted" in err_msg or "quota" in err_msg
+            is_retryable = (
+                "rate limit" in err_msg or 
+                "429" in err_msg or 
+                "resource_exhausted" in err_msg or 
+                "quota" in err_msg or
+                "503" in err_msg or
+                "500" in err_msg or
+                "unavailable" in err_msg or
+                "high demand" in err_msg
+            )
             
-            if is_rate_limit and attempt < max_retries - 1:
-                print(f" -> [RATE LIMIT WARNING] 429 Rate Limit/Resource Exhausted hit. Sleeping for {base_delay} seconds before retry (attempt {attempt + 1}/{max_retries})...")
+            if is_retryable and attempt < max_retries - 1:
+                print(f" -> [RETRY WARNING] Temporary API error (429/503) hit: '{e}'. Sleeping for {base_delay} seconds before retry (attempt {attempt + 1}/{max_retries})...")
                 await asyncio.sleep(base_delay)
             else:
                 raise e
