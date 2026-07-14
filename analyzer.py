@@ -285,9 +285,9 @@ Please perform the following analysis for the 50 PRs provided:
 5. Provide a long, detailed, and highly specific markdown summary (at least 3-4 paragraphs, 300-500 words) using clean markdown styling (headers, bold text, bullet points).
 
 To make an accurate assessment:
-- You MUST call `get_pull_request_files` and `get_pull_request_comments` on a sample of at least 5 to 10 PRs to understand the code composition and reviewer dynamics.
-- Focus on PRs that seem representative, complex, or have interesting comments/titles.
-- Do not make more than 15 tool calls in total to avoid rate limits.
+- You MUST request all your tool calls (both `get_pull_request_files` and `get_pull_request_comments` for a sample of 5 to 6 PRs, totaling 10 to 12 tool calls) in your VERY FIRST response (Turn 1) at the same time in a single batch.
+- DO NOT request tool calls one-by-one or across multiple turns.
+- In Turn 2, you will receive all the tool outputs. You must then immediately analyze the gathered data and output your final JSON response. You are restricted to exactly 2 turns in total.
 
 Your final response must be a single JSON object with the following keys:
 - 'size_tiers': A dictionary containing percentages of 'small', 'medium', and 'large' PRs (summing to 100.0).
