@@ -18,13 +18,14 @@ load_dotenv()
 
 # Verify required keys are set
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/")
 
-if not GITHUB_TOKEN or not GROQ_API_KEY:
+if not GITHUB_TOKEN or (not GEMINI_API_KEY and not GROQ_API_KEY):
     print("\n" + "="*60)
     print("[ERROR] Missing environment variables!")
-    print("Please set GITHUB_TOKEN and GROQ_API_KEY in your .env file:")
+    print("Please set GITHUB_TOKEN and either GEMINI_API_KEY or GROQ_API_KEY in your .env file:")
     print(f"Path: {os.path.abspath('.env')}")
     print("="*60 + "\n")
     sys.exit(1)
@@ -33,14 +34,14 @@ if not GITHUB_TOKEN or not GROQ_API_KEY:
 PR_COUNT = 50
 
 
-def map_mcp_to_groq_tool(mcp_tool):
-    """Converts an MCP tool definition to a Groq-compatible tool schema."""
+def map_mcp_to_llm_tool(mcp_tool):
+    """Converts an MCP tool definition to an LLM-compatible tool schema."""
     parameters = dict(mcp_tool.inputSchema)
     # Remove metadata fields that might confuse the model/API schema validator
     parameters.pop("$schema", None)
     parameters.pop("additionalProperties", None)
     
-    # Standardize 'number' to 'integer' for Groq compatibility
+    # Standardize 'number' to 'integer' for API compatibility
     if "properties" in parameters:
         for prop_name, prop_val in parameters["properties"].items():
             if isinstance(prop_val, dict) and prop_val.get("type") == "number":
@@ -170,13 +171,13 @@ async def execute_single_tool(session, tool_call, owner, repo):
         "content": compressed_output
     }
 
-async def call_groq_with_retry(groq_client, model_name, messages, tools, tool_choice="auto", max_retries=5, base_delay=3):
-    """Executes a Groq chat completion call with automatic exponential backoff for rate limit (429) errors."""
+async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choice="auto", max_retries=5, base_delay=3):
+    """Executes a chat completion call with automatic exponential backoff for rate limit (429) errors."""
     for attempt in range(max_retries):
         try:
-            # Run the synchronous Groq API call in a thread pool to avoid blocking the event loop
+            # Run the synchronous API call in a thread pool to avoid blocking the event loop
             response = await asyncio.to_thread(
-                groq_client.chat.completions.create,
+                llm_client.chat.completions.create,
                 model=model_name,
                 messages=messages,
                 tools=tools,
@@ -189,15 +190,15 @@ async def call_groq_with_retry(groq_client, model_name, messages, tools, tool_ch
             
             if is_rate_limit and attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt)  # Backoff: 3s, 6s, 12s, 24s...
-                print(f" -> [RATE LIMIT] Groq rate limit hit. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
+                print(f" -> [RATE LIMIT] API rate limit hit. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
                 await asyncio.sleep(sleep_time)
             else:
                 raise e
 
-async def analyze_repo(owner, repo, groq_client, db):
+async def analyze_repo(owner, repo, llm_client, model_name, db):
 
 
-    """Runs the full MCP + Groq analysis for a specific repository and returns the parsed JSON result."""
+    """Runs the full MCP + LLM analysis for a specific repository and returns the parsed JSON result."""
     print(f" -> Launching GitHub MCP server subprocess for {owner}/{repo}...")
     
     # Prepare subprocess environment
@@ -251,8 +252,8 @@ async def analyze_repo(owner, repo, groq_client, db):
 
             # Filter tools to only expose relevant ones to the LLM
             target_tools = {"get_pull_request_files", "get_pull_request_comments"}
-            filtered_groq_tools = [
-                map_mcp_to_groq_tool(t) for t in mcp_tools if t.name in target_tools
+            filtered_llm_tools = [
+                map_mcp_to_llm_tool(t) for t in mcp_tools if t.name in target_tools
             ]
 
             # Construct messages
@@ -323,7 +324,6 @@ Example output format:
                 {"role": "user", "content": user_content}
             ]
 
-            model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
             print(f" -> Starting analysis with {model_name}...")
             
@@ -338,11 +338,11 @@ Example output format:
                     await asyncio.to_thread(db["Job_Queue"].delete_one, {"_id": repo_id})
                     raise Exception("Analysis cancelled by user")
 
-                response = await call_groq_with_retry(
-                    groq_client,
+                response = await call_llm_with_retry(
+                    llm_client,
                     model_name=model_name,
                     messages=messages,
-                    tools=filtered_groq_tools,
+                    tools=filtered_llm_tools,
                     tool_choice="auto"
                 )
                 
@@ -415,8 +415,19 @@ async def start_worker():
         print(f" -> [RECOVERY] Reset {recovered.modified_count} stuck 'PROCESSING' jobs back to 'PENDING'.")
 
     
-    # Initialize Groq client
-    groq_client = Groq(api_key=GROQ_API_KEY)
+    # Initialize LLM client (Default to Gemini if API key is set, fallback to Groq)
+    if GEMINI_API_KEY:
+        from openai import OpenAI
+        llm_client = OpenAI(
+            api_key=GEMINI_API_KEY,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+        model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        print(f" -> [LLM INIT] Configured Gemini client using model '{model_name}'")
+    else:
+        llm_client = Groq(api_key=GROQ_API_KEY)
+        model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        print(f" -> [LLM INIT] Configured Groq client using model '{model_name}'")
     
     # Simple heartbeat tracking
     last_heartbeat = datetime.datetime.now()
@@ -448,7 +459,7 @@ async def start_worker():
                 
                 try:
                     # Run the actual PR analysis
-                    analysis_result = await analyze_repo(owner, repo, groq_client, db)
+                    analysis_result = await analyze_repo(owner, repo, llm_client, model_name, db)
                     
                     # Construct report document
                     report_document = {
@@ -494,11 +505,10 @@ async def start_worker():
                     # Clean up common API errors
                     error_message_lower = error_message.lower()
                     if "rate limit" in error_message_lower or "429" in error_message_lower:
-                        if "tpd" in error_message_lower:
-                            # Try to extract the cooldown message if present
-                            error_message = "Groq Daily Rate Limit (TPD) reached. Please wait about 10-15 minutes for the quota to reset."
+                        if "tpd" in error_message_lower or "quota" in error_message_lower:
+                            error_message = "LLM Daily Rate Limit reached. Please wait for the daily quota to reset."
                         else:
-                            error_message = "Groq API rate limit reached. Please try again in a few seconds."
+                            error_message = "LLM API rate limit reached. Please try again in a few seconds."
                     elif "analysis cancelled" in error_message_lower:
                         error_message = "Analysis cancelled by user."
 
