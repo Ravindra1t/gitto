@@ -171,7 +171,7 @@ async def execute_single_tool(session, tool_call, owner, repo):
         "content": compressed_output
     }
 
-async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choice="auto", max_retries=5, base_delay=3):
+async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choice="auto", max_retries=3, base_delay=15):
     """Executes a chat completion call with automatic exponential backoff for rate limit (429) errors."""
     for attempt in range(max_retries):
         try:
@@ -186,12 +186,11 @@ async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choi
             return response
         except Exception as e:
             err_msg = str(e).lower()
-            is_rate_limit = "rate limit" in err_msg or "429" in err_msg
+            is_rate_limit = "rate limit" in err_msg or "429" in err_msg or "resource_exhausted" in err_msg or "quota" in err_msg
             
             if is_rate_limit and attempt < max_retries - 1:
-                sleep_time = base_delay * (2 ** attempt)  # Backoff: 3s, 6s, 12s, 24s...
-                print(f" -> [RATE LIMIT] API rate limit hit. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
-                await asyncio.sleep(sleep_time)
+                print(f" -> [RATE LIMIT WARNING] 429 Rate Limit/Resource Exhausted hit. Sleeping for {base_delay} seconds before retry (attempt {attempt + 1}/{max_retries})...")
+                await asyncio.sleep(base_delay)
             else:
                 raise e
 
@@ -367,13 +366,18 @@ Example output format:
                 messages.append(assistant_msg)
                 
                 if message.tool_calls:
-                    print(f" -> [Turn {turn + 1}] Model requested {len(message.tool_calls)} tool call(s)")
-                    # Run all requested tool calls concurrently in parallel
-                    tasks = [
-                        execute_single_tool(session, tc, owner, repo)
-                        for tc in message.tool_calls
-                    ]
-                    tool_messages = await asyncio.gather(*tasks)
+                    total_calls = len(message.tool_calls)
+                    print(f" -> [Turn {turn + 1}] Model requested {total_calls} tool call(s). Processing sequentially...")
+                    
+                    tool_messages = []
+                    for idx, tc in enumerate(message.tool_calls):
+                        print(f" -> Processing PR tool call {idx + 1} of {total_calls}...")
+                        res = await execute_single_tool(session, tc, owner, repo)
+                        tool_messages.append(res)
+                        
+                        print(" -> Sleeping for 4.5s to respect rate limits...")
+                        await asyncio.sleep(4.5)
+                        
                     messages.extend(tool_messages)
 
                 else:
@@ -422,7 +426,7 @@ async def start_worker():
             api_key=GEMINI_API_KEY,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
         )
-        model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         print(f" -> [LLM INIT] Configured Gemini client using model '{model_name}'")
     else:
         llm_client = Groq(api_key=GROQ_API_KEY)
