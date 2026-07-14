@@ -347,23 +347,7 @@ Example output format:
                 
                 message = response.choices[0].message
                 
-                # Construct assistant message dict
-                assistant_msg = {"role": "assistant"}
-                if message.content is not None:
-                    assistant_msg["content"] = message.content
-                if message.tool_calls:
-                    assistant_msg["tool_calls"] = [
-                        {
-                            "id": tc.id,
-                            "type": tc.type,
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        }
-                        for tc in message.tool_calls
-                    ]
-                messages.append(assistant_msg)
+                messages.append(message)
                 
                 if message.tool_calls:
                     total_calls = len(message.tool_calls)
