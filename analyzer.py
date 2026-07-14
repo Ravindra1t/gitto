@@ -203,6 +203,43 @@ async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choi
             else:
                 raise e
 
+async def fetch_pr_details_in_code(session, owner, repo, pr_number):
+    """Fetches both files and comments details for a PR programmatically using the MCP session."""
+    # 1. Fetch files changed
+    try:
+        files_result = await session.call_tool("get_pull_request_files", {
+            "owner": owner,
+            "repo": repo,
+            "number": pr_number
+        })
+        files_text = "\n".join([
+            block.text if hasattr(block, "text") else (block["text"] if isinstance(block, dict) and "text" in block else str(block))
+            for block in files_result.content
+        ])
+        files_output = compress_tool_output("get_pull_request_files", files_text)
+    except Exception as e:
+        files_output = f"Error: {str(e)}"
+
+    # 2. Fetch comments
+    try:
+        comments_result = await session.call_tool("get_pull_request_comments", {
+            "owner": owner,
+            "repo": repo,
+            "number": pr_number
+        })
+        comments_text = "\n".join([
+            block.text if hasattr(block, "text") else (block["text"] if isinstance(block, dict) and "text" in block else str(block))
+            for block in comments_result.content
+        ])
+        comments_output = compress_tool_output("get_pull_request_comments", comments_text)
+    except Exception as e:
+        comments_output = f"Error: {str(e)}"
+
+    return {
+        "files": files_output,
+        "comments": comments_output
+    }
+
 async def analyze_repo(owner, repo, llm_client, model_name, db):
 
 
@@ -258,38 +295,36 @@ async def analyze_repo(owner, repo, llm_client, model_name, db):
                 })
 
 
-            # Filter tools to only expose relevant ones to the LLM
-            target_tools = {"get_pull_request_files", "get_pull_request_comments"}
-            filtered_llm_tools = [
-                map_mcp_to_llm_tool(t) for t in mcp_tools if t.name in target_tools
-            ]
+            # Select 5 representative PRs for detailed code and review analysis
+            # We sort by comments count descending to get PRs with active discussions first
+            sample_prs = sorted(merged_prs, key=lambda x: x.get("comments", 0), reverse=True)[:5]
+            
+            detailed_pr_data = []
+            for idx, pr in enumerate(sample_prs):
+                # Check if this job has been cancelled in the database
+                repo_id = f"{owner}/{repo}".lower()
+                job_doc = await asyncio.to_thread(db["Job_Queue"].find_one, {"_id": repo_id})
+                if job_doc and job_doc.get("status") == "CANCELLED":
+                    print(f" -> [CANCELLED] Analysis for {repo_id} was cancelled by user. Terminating immediately.")
+                    await asyncio.to_thread(db["Job_Queue"].delete_one, {"_id": repo_id})
+                    raise Exception("Analysis cancelled by user")
 
-            # Construct messages
-            system_prompt = f"""You are an expert GitHub Pull Request Analyzer. Your goal is to analyze the last 50 merged pull requests of a repository and provide structured metrics and a highly detailed, professional qualitative evaluation.
+                pr_num = pr.get("number")
+                print(f" -> Programmatically fetching details for PR #{pr_num} ({idx + 1}/5)...")
+                details = await fetch_pr_details_in_code(session, owner, repo, pr_num)
+                detailed_pr_data.append({
+                    "number": pr_num,
+                    "title": pr.get("title"),
+                    "details": details
+                })
+                # Sleeping 4.5s to strictly respect rate limits
+                print(" -> Sleeping for 4.5s to respect rate limits...")
+                await asyncio.sleep(4.5)
 
-You have access to the following tools to fetch details of the PRs:
-1. `get_pull_request_files`: Get the files changed in a PR. Use this to determine the files changed, addition/deletion lines (size), and file paths (domain: frontend/backend/devops).
-2. `get_pull_request_comments`: Get review comments on a PR. Use this to analyze feedback from reviewers, reasons for revisions, and what was discussed before merging.
+            # Construct consolidated system prompt
+            system_prompt = """You are an expert GitHub Pull Request Analyzer. Your goal is to analyze the merged pull requests of a repository and provide structured metrics and a highly detailed, professional qualitative evaluation.
 
-Please perform the following analysis for the 50 PRs provided:
-1. Classify each PR's size into a tier: Small (<100 lines changed), Medium (100-500 lines changed), or Large (>500 lines changed).
-2. Classify each PR's domain: Frontend (UI, React components, CSS, JS/TS source files), Backend (Server logic, APIs, Node scripts, renderer code, database configs), or DevOps (GitHub Actions, workflows, CI/CD configs, building scripts, package releases).
-3. Calculate Merge Velocity metrics comparing `created_at` and `closed_at` timestamps:
-   - Fast: Merged in less than 24 hours.
-   - Medium: Merged in 1 to 5 days.
-   - Slow: Merged in over 5 days.
-4. Calculate Discussion Density metrics based on `comments_count`:
-   - None: 0 comments.
-   - Low: 1 to 5 comments.
-   - High: More than 5 comments.
-5. Provide a long, detailed, and highly specific markdown summary (at least 3-4 paragraphs, 300-500 words) using clean markdown styling (headers, bold text, bullet points).
-
-To make an accurate assessment:
-- You MUST request all your tool calls (both `get_pull_request_files` and `get_pull_request_comments` for a sample of 5 to 6 PRs, totaling 10 to 12 tool calls) in your VERY FIRST response (Turn 1) at the same time in a single batch.
-- DO NOT request tool calls one-by-one or across multiple turns.
-- In Turn 2, you will receive all the tool outputs. You must then immediately analyze the gathered data and output your final JSON response. You are restricted to exactly 2 turns in total.
-
-Your final response must be a single JSON object with the following keys:
+You must return a single JSON object containing:
 - 'size_tiers': A dictionary containing percentages of 'small', 'medium', and 'large' PRs (summing to 100.0).
 - 'domains': A dictionary containing percentages of 'frontend', 'backend', and 'devops' PRs (summing to 100.0).
 - 'merge_velocity': A dictionary containing percentages of 'fast', 'medium', and 'slow' PRs (summing to 100.0).
@@ -297,98 +332,67 @@ Your final response must be a single JSON object with the following keys:
 - 'llm_summaries': A highly structured markdown text containing a detailed analysis of code patterns, reviewer feedback, common revision requests, and acceptability standards.
 
 Example output format:
-{{
-  "size_tiers": {{
+{
+  "size_tiers": {
     "small": 45.0,
     "medium": 40.0,
     "large": 15.0
-  }},
-  "domains": {{
+  },
+  "domains": {
     "frontend": 80.0,
     "backend": 10.0,
     "devops": 10.0
-  }},
-  "merge_velocity": {{
+  },
+  "merge_velocity": {
     "fast": 60.0,
     "medium": 30.0,
     "slow": 10.0
-  }},
-  "discussion_density": {{
+  },
+  "discussion_density": {
     "none": 50.0,
     "low": 40.0,
     "high": 10.0
-  }},
+  },
   "llm_summaries": "### 1. Code Review Dynamics & Common Triggers\\nReviewers in this repository heavily emphasize clean architecture, strict linting, and proper testing coverage. Common revision triggers include:\\n- **Performance Overhead**: Concerns regarding inefficient renders or network requests.\\n- **Formatting and Styles**: Missing typings or style rule violations.\\n\\n### 2. Standards for Acceptability\\nPRs are generally accepted and merged once all automated checks pass and at least one core reviewer gives a detailed sign-off. Code changes in this repository are highly frontend-centric, focusing on React components and state management.\\n\\n### 3. Recommended Workflow\\nFor new contributors, we recommend:\\n1. Running local tests before push.\\n2. Breaking down code refactors into smaller, single-file pull requests to speed up the review cycle."
-}}
+}
 """
 
-
-            user_content = f"Here are the last {len(prs_list_for_llm)} merged pull requests for the repository {owner}/{repo}:\n\n"
+            user_content = f"Here is the pull request dataset for the repository {owner}/{repo}.\n\n"
+            user_content += "1. List of the last 50 merged PRs:\n"
             user_content += json.dumps(prs_list_for_llm, indent=2)
-            user_content += "\n\nPlease analyze them using the tools and return the structured JSON output."
+            user_content += "\n\n2. Detailed file changes and discussion comments for a representative sample of PRs:\n"
+            user_content += json.dumps(detailed_pr_data, indent=2)
+            user_content += "\n\nPlease analyze this dataset and return the structured JSON output directly."
 
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ]
 
-
-            print(f" -> Starting analysis with {model_name}...")
+            print(f" -> Sending single analysis request to {model_name}...")
+            response = await call_llm_with_retry(
+                llm_client,
+                model_name=model_name,
+                messages=messages,
+                tools=None,
+                tool_choice=None
+            )
             
-            # Tool-calling loop
-            max_turns = 15
-            for turn in range(max_turns):
-                # Check if this job has been cancelled in the database
-                repo_id = f"{owner}/{repo}".lower()
-                job_doc = await asyncio.to_thread(db["Job_Queue"].find_one, {"_id": repo_id})
-                if job_doc and job_doc.get("status") == "CANCELLED":
-                    print(f" -> [CANCELLED] Analysis for {repo_id} was cancelled by user. Terminating loop immediately.")
-                    await asyncio.to_thread(db["Job_Queue"].delete_one, {"_id": repo_id})
-                    raise Exception("Analysis cancelled by user")
+            message = response.choices[0].message
+            print(" -> Response received. Parsing final JSON response...")
 
-                response = await call_llm_with_retry(
-                    llm_client,
-                    model_name=model_name,
-                    messages=messages,
-                    tools=filtered_llm_tools,
-                    tool_choice="auto"
-                )
-                
-                message = response.choices[0].message
-                
-                messages.append(message)
-                
-                if message.tool_calls:
-                    total_calls = len(message.tool_calls)
-                    print(f" -> [Turn {turn + 1}] Model requested {total_calls} tool call(s). Processing sequentially...")
-                    
-                    tool_messages = []
-                    for idx, tc in enumerate(message.tool_calls):
-                        print(f" -> Processing PR tool call {idx + 1} of {total_calls}...")
-                        res = await execute_single_tool(session, tc, owner, repo)
-                        tool_messages.append(res)
-                        
-                        print(" -> Sleeping for 4.5s to respect rate limits...")
-                        await asyncio.sleep(4.5)
-                        
-                    messages.extend(tool_messages)
-
-                else:
-                    print(" -> Model analysis loop completed. Parsing final JSON response...")
-                    # Parse the final output as JSON
-                    try:
-                        return json.loads(message.content)
-                    except Exception as json_err:
-                        # Sometimes models include markdown code blocks around JSON
-                        clean_content = message.content.strip()
-                        if clean_content.startswith("```json"):
-                            clean_content = clean_content[7:]
-                        if clean_content.endswith("```"):
-                            clean_content = clean_content[:-3]
-                        clean_content = clean_content.strip()
-                        return json.loads(clean_content)
-                        
-            raise Exception("Model reached maximum turn limit without generating final response.")
+            # Parse the final output as JSON
+            try:
+                return json.loads(message.content)
+            except Exception as json_err:
+                # Sometimes models include markdown code blocks around JSON
+                clean_content = message.content.strip()
+                if clean_content.startswith("```json"):
+                    clean_content = clean_content[7:]
+                if clean_content.endswith("```"):
+                    clean_content = clean_content[:-3]
+                clean_content = clean_content.strip()
+                return json.loads(clean_content)
 
 async def start_worker():
     """Continuously polls the MongoDB Job_Queue and processes pending PR analysis tasks."""
