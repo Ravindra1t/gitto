@@ -173,15 +173,21 @@ async def execute_single_tool(session, tool_call, owner, repo):
 
 async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choice="auto", max_retries=3, base_delay=15):
     """Executes a chat completion call with automatic exponential backoff for rate limit (429) errors."""
+    kwargs = {
+        "model": model_name,
+        "messages": messages
+    }
+    if tools is not None:
+        kwargs["tools"] = tools
+    if tool_choice is not None:
+        kwargs["tool_choice"] = tool_choice
+
     for attempt in range(max_retries):
         try:
             # Run the synchronous API call in a thread pool to avoid blocking the event loop
             response = await asyncio.to_thread(
                 llm_client.chat.completions.create,
-                model=model_name,
-                messages=messages,
-                tools=tools,
-                tool_choice=tool_choice
+                **kwargs
             )
             return response
         except Exception as e:
@@ -504,9 +510,10 @@ async def start_worker():
                     
                     # Resolve underlying cause if wrapped in an ExceptionGroup (common in AnyIO task groups)
                     try:
-                        if hasattr(ex, "exceptions") and ex.exceptions:
-                            underlying_err = ex.exceptions[0]
-                            error_message = str(underlying_err)
+                        curr_ex = ex
+                        while hasattr(curr_ex, "exceptions") and curr_ex.exceptions:
+                            curr_ex = curr_ex.exceptions[0]
+                        error_message = str(curr_ex)
                     except Exception:
                         pass
                     
