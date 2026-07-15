@@ -423,8 +423,12 @@ async def start_worker():
         print(f" -> [RECOVERY] Reset {recovered.modified_count} stuck 'PROCESSING' jobs back to 'PENDING'.")
 
     
-    # Initialize LLM client (Default to Gemini if API key is set, fallback to Groq)
-    if GEMINI_API_KEY:
+    # Initialize LLM client (Default to Groq if API key is set, fallback to Gemini)
+    if GROQ_API_KEY:
+        llm_client = Groq(api_key=GROQ_API_KEY)
+        model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        print(f" -> [LLM INIT] Configured Groq client using model '{model_name}'")
+    else:
         from openai import OpenAI
         llm_client = OpenAI(
             api_key=GEMINI_API_KEY,
@@ -432,10 +436,6 @@ async def start_worker():
         )
         model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         print(f" -> [LLM INIT] Configured Gemini client using model '{model_name}'")
-    else:
-        llm_client = Groq(api_key=GROQ_API_KEY)
-        model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-        print(f" -> [LLM INIT] Configured Groq client using model '{model_name}'")
     
     # Simple heartbeat tracking
     last_heartbeat = datetime.datetime.now()
