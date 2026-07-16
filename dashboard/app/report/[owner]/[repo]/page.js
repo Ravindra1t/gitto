@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import clientPromise from '../../../../lib/mongodb';
 import ReportLoader from '../../../../components/ReportLoader';
-import { SizeChart, DomainChart, VelocityChart, DiscussionChart } from '../../../../components/ReportChart';
-import { GitPullRequest, Calendar, ArrowLeft, Database, HelpCircle } from 'lucide-react';
+import { SizeChart, DomainChart, VelocityChart, DiscussionChart, IntentChart, RiskChart } from '../../../../components/ReportChart';
+import InvestigatorChat from '../../../../components/InvestigatorChat';
+import { GitPullRequest, Calendar, ArrowLeft, Database, HelpCircle, Clock, ShieldCheck } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,13 +145,13 @@ export default async function ReportPage({ params }) {
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Search
           </Link>
           <span className="text-[10px] font-mono text-zinc-400 border border-zinc-200 bg-white px-2 py-0.5 rounded flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Cached Report
           </span>
         </div>
 
         {/* Repository info banner */}
-        <div className="border border-zinc-200 bg-white rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+        <div className="border border-zinc-200 bg-white rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm hover:border-zinc-300 transition-colors">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-zinc-50 border border-zinc-200 rounded text-zinc-700">
@@ -171,7 +172,40 @@ export default async function ReportPage({ params }) {
           </div>
         </div>
 
-        {/* 4-Chart Grid */}
+        {/* Key Metrics Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Test Inclusion Rate Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 flex items-center justify-between shadow-sm hover:border-zinc-300 hover:shadow transition-all duration-300">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">
+                Test Inclusion Rate
+              </span>
+              <div className="text-2xl font-mono font-bold text-zinc-900">
+                {report.test_inclusion_rate != null ? `${report.test_inclusion_rate.toFixed(1)}%` : 'N/A'}
+              </div>
+            </div>
+            <div className="p-3 bg-zinc-50 border border-zinc-100 rounded text-zinc-800">
+              <ShieldCheck className="w-6 h-6 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Time to First Review Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 flex items-center justify-between shadow-sm hover:border-zinc-300 hover:shadow transition-all duration-300">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">
+                Time-To-First-Review
+              </span>
+              <div className="text-2xl font-mono font-bold text-zinc-900">
+                {report.time_to_first_review != null ? `${report.time_to_first_review.toFixed(1)} hrs` : 'N/A'}
+              </div>
+            </div>
+            <div className="p-3 bg-zinc-50 border border-zinc-100 rounded text-zinc-800">
+              <Clock className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* 6-Chart Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sizes Chart Card */}
           <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
@@ -232,6 +266,44 @@ export default async function ReportPage({ params }) {
               </div>
             )}
           </div>
+
+          {/* PR Intent Chart Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                PR Intent
+              </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Changes Category</span>
+            </div>
+            {report.pr_intent ? (
+              <IntentChart data={report.pr_intent} />
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
+                <HelpCircle className="w-5 h-5 text-zinc-300" />
+                <span>No intent data</span>
+                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Risk Score Chart Card */}
+          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
+            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
+              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
+                Risk Score
+              </h2>
+              <span className="text-[10px] font-mono text-zinc-400">Safety Rating</span>
+            </div>
+            {report.risk_score ? (
+              <RiskChart data={report.risk_score} />
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
+                <HelpCircle className="w-5 h-5 text-zinc-300" />
+                <span>No risk data</span>
+                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Qualitative LLM Summary Section */}
@@ -245,6 +317,9 @@ export default async function ReportPage({ params }) {
             {renderMarkdown(report.llm_summaries)}
           </div>
         </div>
+
+        {/* Interactive Chat Section */}
+        <InvestigatorChat owner={owner} repo={repo} />
 
       </div>
     </div>

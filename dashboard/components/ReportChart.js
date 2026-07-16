@@ -72,7 +72,8 @@ export function DomainChart({ data }) {
   const chartData = [
     { name: 'Frontend', value: data?.frontend || 0 },
     { name: 'Backend', value: data?.backend || 0 },
-    { name: 'DevOps', value: data?.devops || 0 }
+    { name: 'DevOps', value: data?.devops || 0 },
+    { name: 'Docs', value: data?.docs || 0 }
   ];
 
   return (
@@ -230,6 +231,122 @@ export function DiscussionChart({ data }) {
           <Bar 
             dataKey="value" 
             fill={COLORS.light} 
+            radius={[3, 3, 0, 0]} 
+            maxBarSize={35}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function IntentChart({ data }) {
+  const chartData = [
+    { name: 'Feature', value: data?.feature || 0 },
+    { name: 'Bugfix', value: data?.bugfix || 0 },
+    { name: 'Refactor', value: data?.refactor || 0 },
+    { name: 'Chore', value: data?.chore || 0 }
+  ];
+
+  return (
+    <div className="w-full h-48 font-mono text-[10px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
+          <XAxis 
+            dataKey="name" 
+            stroke={COLORS.secondary} 
+            tickLine={false} 
+            axisLine={false}
+            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+          />
+          <YAxis 
+            stroke={COLORS.secondary} 
+            tickLine={false} 
+            axisLine={false}
+            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            unit="%"
+          />
+          <Tooltip
+            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                return (
+                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
+                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
+                    <p className="text-zinc-950 mt-0.5 font-bold">
+                      Share: {payload[0].value.toFixed(1)}%
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar 
+            dataKey="value" 
+            fill={COLORS.primary} 
+            radius={[3, 3, 0, 0]} 
+            maxBarSize={35}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function RiskChart({ data }) {
+  const chartData = [
+    { name: 'Low', value: data?.low || 0 },
+    { name: 'Medium', value: data?.medium || 0 },
+    { name: 'High', value: data?.high || 0 },
+    { name: 'Critical', value: data?.critical || 0 }
+  ];
+
+  return (
+    <div className="w-full h-48 font-mono text-[10px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
+          <XAxis 
+            dataKey="name" 
+            stroke={COLORS.secondary} 
+            tickLine={false} 
+            axisLine={false}
+            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+          />
+          <YAxis 
+            stroke={COLORS.secondary} 
+            tickLine={false} 
+            axisLine={false}
+            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            unit="%"
+          />
+          <Tooltip
+            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                return (
+                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
+                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
+                    <p className="text-zinc-950 mt-0.5 font-bold">
+                      Share: {payload[0].value.toFixed(1)}%
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar 
+            dataKey="value" 
+            fill={COLORS.secondary} 
             radius={[3, 3, 0, 0]} 
             maxBarSize={35}
           />

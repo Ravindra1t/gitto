@@ -339,9 +339,13 @@ async def analyze_repo(owner, repo, llm_client, model_name, db):
 
 You must return a single JSON object containing:
 - 'size_tiers': A dictionary containing percentages of 'small', 'medium', and 'large' PRs (summing to 100.0).
-- 'domains': A dictionary containing percentages of 'frontend', 'backend', and 'devops' PRs (summing to 100.0).
+- 'domains': A dictionary containing percentages of 'frontend', 'backend', 'devops', and 'docs' PRs (summing to 100.0).
 - 'merge_velocity': A dictionary containing percentages of 'fast', 'medium', and 'slow' PRs (summing to 100.0).
 - 'discussion_density': A dictionary containing percentages of 'none', 'low', and 'high' PRs (summing to 100.0).
+- 'pr_intent': A dictionary containing percentages of 'feature', 'bugfix', 'refactor', and 'chore' PRs (summing to 100.0).
+- 'risk_score': A dictionary containing percentages of 'low', 'medium', 'high', and 'critical' PRs (summing to 100.0).
+- 'test_inclusion_rate': A float between 0.0 and 100.0 representing the percentage of PRs containing changes to test files (e.g. test_*.py, *.test.js, spec, etc.).
+- 'time_to_first_review': A float representing the average time in hours from PR creation to the first reviewer comment.
 - 'llm_summaries': A highly structured markdown text containing a detailed analysis of code patterns, reviewer feedback, common revision requests, and acceptability standards.
 
 Example output format:
@@ -352,9 +356,10 @@ Example output format:
     "large": 15.0
   },
   "domains": {
-    "frontend": 80.0,
-    "backend": 10.0,
-    "devops": 10.0
+    "frontend": 60.0,
+    "backend": 20.0,
+    "devops": 10.0,
+    "docs": 10.0
   },
   "merge_velocity": {
     "fast": 60.0,
@@ -366,6 +371,20 @@ Example output format:
     "low": 40.0,
     "high": 10.0
   },
+  "pr_intent": {
+    "feature": 50.0,
+    "bugfix": 30.0,
+    "refactor": 10.0,
+    "chore": 10.0
+  },
+  "risk_score": {
+    "low": 60.0,
+    "medium": 25.0,
+    "high": 10.0,
+    "critical": 5.0
+  },
+  "test_inclusion_rate": 45.5,
+  "time_to_first_review": 3.8,
   "llm_summaries": "### 1. Code Review Dynamics & Common Triggers\\nReviewers in this repository heavily emphasize clean architecture, strict linting, and proper testing coverage. Common revision triggers include:\\n- **Performance Overhead**: Concerns regarding inefficient renders or network requests.\\n- **Formatting and Styles**: Missing typings or style rule violations.\\n\\n### 2. Standards for Acceptability\\nPRs are generally accepted and merged once all automated checks pass and at least one core reviewer gives a detailed sign-off. Code changes in this repository are highly frontend-centric, focusing on React components and state management.\\n\\n### 3. Recommended Workflow\\nFor new contributors, we recommend:\\n1. Running local tests before push.\\n2. Breaking down code refactors into smaller, single-file pull requests to speed up the review cycle."
 }
 """
@@ -407,11 +426,120 @@ Example output format:
                 clean_content = clean_content.strip()
                 return json.loads(clean_content)
 
+async def handle_chat_session(chat_session, llm_client, model_name, db):
+    repo_name = chat_session.get("_id")
+    owner, repo = repo_name.split("/", 1)
+    
+    print(f" -> Launching GitHub MCP server subprocess for chat investigation on {owner}/{repo}...")
+    
+    # Prepare subprocess environment
+    env = {**os.environ, "GITHUB_TOKEN": GITHUB_TOKEN}
+    if platform.system() == "Windows":
+        npx_path = r"C:\Program Files\nodejs\npx.cmd"
+        node_dir = r"C:\Program Files\nodejs"
+        env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
+        server_params = StdioServerParameters(
+            command="cmd.exe",
+            args=["/c", npx_path, "-y", "@modelcontextprotocol/server-github"],
+            env=env
+        )
+    else:
+        server_params = StdioServerParameters(
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-github"],
+            env=env
+        )
+
+    async with stdio_client(server_params) as (read_stream, write_stream):
+        print(" -> Connected. Initializing Model Context Protocol session for chat...")
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            
+            # Retrieve list of available tools
+            tools_response = await session.list_tools()
+            mcp_tools = tools_response.tools
+            llm_tools = [map_mcp_to_llm_tool(t) for t in mcp_tools]
+
+            system_prompt = """You are an elite Staff-Level DevOps and Codebase Analyst Agent. You have a dual mandate: to provide deep, qualitative analytics on GitHub Pull Requests, and to act as an interactive investigator for the user.
+
+You operate in Phase 2: Interactive Investigation Mode. The user will ask specific, ad-hoc questions about the repository, developers, or specific PRs.
+
+YOUR DIRECTIVES IN PHASE 2:
+1. DO NOT GUESS: If the user asks a specific question about code, architecture, or a developer that you do not have in your immediate context, you MUST use your available tools to fetch the exact data.
+2. TOOL USAGE: 
+   - Use `get_pull_request_files` or other PR tools to fetch specific diffs, comments, or commit history for a PR.
+   - Use `search_issues` or other tools to find pull requests or issues.
+   - Use `get_file_contents` to read the actual code to answer architecture questions.
+3. BE DECISIVE: When you reply to the user, be concise, highly technical, and direct. Do not use corporate fluff. Cite the specific PR numbers or file names you found during your tool execution.
+4. FORMAT: Respond in clean Markdown for readability.
+
+Remember: You are evaluating code quality, identifying bottlenecks, and keeping the engineering team accountable. Be objective, factual, and ruthless about codebase health.
+"""
+
+            conversation = [
+                {"role": "system", "content": system_prompt}
+            ] + chat_session["messages"]
+
+            final_reply = "No response generated."
+            for turn in range(10):
+                print(f" -> LLM Chat Turn {turn + 1}...")
+                response = await call_llm_with_retry(
+                    llm_client,
+                    model_name=model_name,
+                    messages=conversation,
+                    tools=llm_tools,
+                    tool_choice="auto"
+                )
+                
+                message = response.choices[0].message
+                
+                # Check if the LLM wants to call a tool
+                if message.tool_calls:
+                    msg_dict = {
+                        "role": "assistant",
+                        "content": message.content,
+                    }
+                    msg_dict["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        } for tc in message.tool_calls
+                    ]
+                    conversation.append(msg_dict)
+                    
+                    for tool_call in message.tool_calls:
+                        print(f" -> [CHAT TOOL] Executing tool '{tool_call.function.name}'...")
+                        tool_response = await execute_single_tool(session, tool_call, owner, repo)
+                        conversation.append(tool_response)
+                else:
+                    final_reply = message.content
+                    break
+            else:
+                final_reply = "Investigation timed out. Please narrow down your query or try again."
+
+            # Append final assistant reply to messages in MongoDB
+            await asyncio.to_thread(
+                db["Chat_Sessions"].update_one,
+                {"_id": repo_name},
+                {
+                    "$push": {"messages": {"role": "assistant", "content": final_reply}},
+                    "$set": {
+                        "status": "COMPLETED",
+                        "completed_at": datetime.datetime.now(datetime.timezone.utc)
+                    }
+                }
+            )
+            print(f" -> [CHAT COMPLETED] Response updated in database for '{repo_name}'")
+
 async def start_worker():
-    """Continuously polls the MongoDB Job_Queue and processes pending PR analysis tasks."""
+    """Continuously polls the MongoDB Job_Queue and Chat_Sessions, processing pending tasks."""
     print("\n" + "="*70)
     print("      GitHub PR Analyzer Worker Loop is starting...      ")
-    print(f"      Polling MongoDB at: {MONGODB_URI} every 10s       ")
+    print(f"      Polling MongoDB at: {MONGODB_URI} every 2.5s      ")
     print("="*70 + "\n")
     
     # Setup database connections
@@ -419,6 +547,7 @@ async def start_worker():
     db = client["github_pr_analyzer"]
     job_queue = db["Job_Queue"]
     pr_reports = db["PR_Reports"]
+    chat_sessions = db["Chat_Sessions"]
     
     # Recover any crashed/stuck processing jobs back to PENDING on startup
     recovered = job_queue.update_many(
@@ -428,7 +557,14 @@ async def start_worker():
     if recovered.modified_count > 0:
         print(f" -> [RECOVERY] Reset {recovered.modified_count} stuck 'PROCESSING' jobs back to 'PENDING'.")
 
-    
+    # Recover any crashed/stuck chat sessions back to PENDING on startup
+    recovered_chats = chat_sessions.update_many(
+        {"status": "PROCESSING"},
+        {"$set": {"status": "PENDING", "started_at": None}}
+    )
+    if recovered_chats.modified_count > 0:
+        print(f" -> [RECOVERY] Reset {recovered_chats.modified_count} stuck chat sessions back to 'PENDING'.")
+
     # Initialize LLM client (Default to Groq if API key is set, fallback to Gemini)
     if GROQ_API_KEY:
         llm_client = Groq(api_key=GROQ_API_KEY)
@@ -448,7 +584,47 @@ async def start_worker():
     
     try:
         while True:
-            # Poll for PENDING job and transition it atomically to PROCESSING
+            # 1. First poll for PENDING chat sessions
+            chat_session = await asyncio.to_thread(
+                chat_sessions.find_one_and_update,
+                {"status": "PENDING"},
+                {"$set": {
+                    "status": "PROCESSING",
+                    "started_at": datetime.datetime.now(datetime.timezone.utc)
+                }},
+                return_document=ReturnDocument.AFTER
+            )
+            
+            if chat_session:
+                repo_name = chat_session.get("_id")
+                print(f"\n[{datetime.datetime.now().strftime('%H:%M:%S')}] [CHAT SESSION ACQUIRED] '{repo_name}'")
+                try:
+                    await handle_chat_session(chat_session, llm_client, model_name, db)
+                except Exception as chat_ex:
+                    print(f" -> [CHAT FAILED] Error processing chat for '{repo_name}': {chat_ex}")
+                    traceback.print_exc()
+                    
+                    # Recursively get leaf exception
+                    err_msg = str(chat_ex)
+                    try:
+                        curr_ex = chat_ex
+                        while hasattr(curr_ex, "exceptions") and curr_ex.exceptions:
+                            curr_ex = curr_ex.exceptions[0]
+                        err_msg = str(curr_ex)
+                    except Exception:
+                        pass
+                        
+                    await asyncio.to_thread(
+                        chat_sessions.update_one,
+                        {"_id": repo_name},
+                        {"$set": {
+                            "status": "FAILED",
+                            "error": err_msg
+                        }}
+                    )
+                continue  # Skip sleep and check again immediately
+
+            # 2. Next poll for PENDING repository analysis jobs
             job = await asyncio.to_thread(
                 job_queue.find_one_and_update,
                 {"status": "PENDING"},
@@ -483,10 +659,13 @@ async def start_worker():
                         "domains": analysis_result.get("domains"),
                         "merge_velocity": analysis_result.get("merge_velocity"),
                         "discussion_density": analysis_result.get("discussion_density"),
+                        "pr_intent": analysis_result.get("pr_intent"),
+                        "risk_score": analysis_result.get("risk_score"),
+                        "test_inclusion_rate": analysis_result.get("test_inclusion_rate"),
+                        "time_to_first_review": analysis_result.get("time_to_first_review"),
                         "llm_summaries": analysis_result.get("llm_summaries"),
                         "analyzed_at": datetime.datetime.now(datetime.timezone.utc)
                     }
-
                     
                     # Save report to PR_Reports collection (upsert)
                     await asyncio.to_thread(
@@ -537,15 +716,16 @@ async def start_worker():
                             "failed_at": datetime.datetime.now(datetime.timezone.utc)
                         }}
                     )
-            else:
-                # Log a minor heartbeat indicator every 30 seconds to show worker is active
-                now = datetime.datetime.now()
-                if (now - last_heartbeat).seconds >= 30:
-                    print(f"[{now.strftime('%H:%M:%S')}] Polling... [No pending jobs in queue]")
-                    last_heartbeat = now
+                continue  # Skip sleep and check again immediately
+
+            # 3. Heartbeat logging
+            now = datetime.datetime.now()
+            if (now - last_heartbeat).seconds >= 30:
+                print(f"[{now.strftime('%H:%M:%S')}] Polling... [No pending tasks in queue]")
+                last_heartbeat = now
                 
-            # Wait 10 seconds before the next check
-            await asyncio.sleep(10)
+            # Wait 2.5 seconds before the next check
+            await asyncio.sleep(2.5)
             
     except KeyboardInterrupt:
         print("\nWorker loop terminated by user.")
