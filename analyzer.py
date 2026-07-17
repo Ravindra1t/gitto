@@ -511,8 +511,9 @@ YOUR DIRECTIVES IN PHASE 2:
 3. CONVERSATIONAL RESTRICTION DURING TOOL CALLS:
    - When you invoke a tool, you MUST output ONLY the tool calls.
    - Do NOT output any thought process, conversational text, explanations, or questions in the same turn that you call tools. Any explanations or answers must be returned only after you have received the tool outputs.
-4. BE DECISIVE: When you reply to the user, be concise, highly technical, and direct. Cite the specific PR numbers or file names you found during your tool execution.
-5. FORMAT: Respond in clean Markdown for readability.
+4. CASUAL CONVERSATION: If the user is engaging in casual conversation (e.g., greetings like "hello", saying thank you, or social pleasantries), respond conversationally and DO NOT call any tools.
+5. BE DECISIVE: When you reply to the user, be concise, highly technical, and direct. Cite the specific PR numbers or file names you found during your tool execution.
+6. FORMAT: Respond in clean Markdown for readability.
 """
 
             sanitized_messages = []
@@ -546,8 +547,8 @@ YOUR DIRECTIVES IN PHASE 2:
                 
                 message = response.choices[0].message
                 
-                # Check if the LLM wants to call a tool
-                if message.tool_calls:
+                # Check if the LLM wants to call a tool (ensuring tool_calls exists and is not empty)
+                if hasattr(message, "tool_calls") and message.tool_calls and len(message.tool_calls) > 0:
                     msg_dict = {
                         "role": "assistant",
                         "content": message.content,
@@ -557,8 +558,8 @@ YOUR DIRECTIVES IN PHASE 2:
                             "id": tc.id,
                             "type": tc.type,
                             "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
+                               "name": tc.function.name,
+                               "arguments": tc.function.arguments
                             }
                         } for tc in message.tool_calls
                     ]
@@ -569,7 +570,8 @@ YOUR DIRECTIVES IN PHASE 2:
                         tool_response = await execute_single_tool(session, tool_call, owner, repo)
                         conversation.append(tool_response)
                 else:
-                    final_reply = message.content
+                    # Plain text fallback: Extract the text content and break the loop
+                    final_reply = message.content or "Conversation completed."
                     break
             else:
                 final_reply = "Investigation timed out. Please narrow down your query or try again."
