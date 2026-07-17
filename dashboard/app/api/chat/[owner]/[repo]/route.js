@@ -14,8 +14,11 @@ export async function GET(request, { params }) {
       return NextResponse.json({ messages: [], status: 'COMPLETED' });
     }
 
+    // Sanitize the messages array by mapping over it to ensure ONLY role and content are sent
+    const sanitizedMessages = (chatSession.messages || []).map(({ role, content }) => ({ role, content }));
+
     return NextResponse.json({
-      messages: chatSession.messages || [],
+      messages: sanitizedMessages,
       status: chatSession.status || 'COMPLETED',
       error: chatSession.error || null
     });
@@ -31,25 +34,27 @@ export async function POST(request, { params }) {
 
   try {
     const body = await request.json();
-    const { message } = body;
-
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'Invalid message content' }, { status: 400 });
-    }
+    const { message, messages } = body;
 
     const client = await clientPromise;
     const db = client.db('github_pr_analyzer');
 
-    // Atomic update: push the user message and transition status to PENDING
+    let sanitizedInputMessages = [];
+    if (messages && Array.isArray(messages)) {
+      // Map over the incoming array to ensure ONLY role and content are extracted
+      sanitizedInputMessages = messages.map(({ role, content }) => ({ role, content }));
+    } else if (message && typeof message === 'string') {
+      sanitizedInputMessages = [{ role: 'user', content: message }];
+    } else {
+      return NextResponse.json({ error: 'Invalid message content' }, { status: 400 });
+    }
+
+    // Atomic update: push the sanitized messages and transition status to PENDING
     const result = await db.collection('Chat_Sessions').findOneAndUpdate(
       { _id: repoId },
       {
         $push: {
-          messages: {
-            role: 'user',
-            content: message,
-            timestamp: new Date()
-          }
+          messages: { $each: sanitizedInputMessages }
         },
         $set: {
           status: 'PENDING',
@@ -63,8 +68,11 @@ export async function POST(request, { params }) {
       }
     );
 
+    // Sanitize the returned messages array by mapping over it to ensure ONLY role and content are sent
+    const returnedMessages = (result.messages || []).map(({ role, content }) => ({ role, content }));
+
     return NextResponse.json({
-      messages: result.messages || [],
+      messages: returnedMessages,
       status: result.status || 'PENDING'
     });
   } catch (error) {
