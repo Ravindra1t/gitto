@@ -1,14 +1,68 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const COLORS = {
-  text: '#737373',       // neutral-500
-  barPrimary: '#ffffff', // Stark white
-  barSecondary: '#a3a3a3', // neutral-400
-  barMuted: '#525252',   // neutral-600
-  barDark: '#262626',    // neutral-800
+  text: '#64748b', // slate-500
 };
+
+// Global Gradients Component to define gradients once or inside each chart to keep them self-contained
+function ChartGradients() {
+  return (
+    <defs>
+      {/* Cyan to Blue */}
+      <linearGradient id="smallGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#22d3ee" />
+        <stop offset="100%" stopColor="#3b82f6" />
+      </linearGradient>
+      {/* Amber to Orange */}
+      <linearGradient id="mediumGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#fbbf24" />
+        <stop offset="100%" stopColor="#f97316" />
+      </linearGradient>
+      {/* Fuchsia to Purple */}
+      <linearGradient id="largeGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#d946ef" />
+        <stop offset="100%" stopColor="#9333ea" />
+      </linearGradient>
+      {/* Green to Forest Green */}
+      <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#4ade80" />
+        <stop offset="100%" stopColor="#16a34a" />
+      </linearGradient>
+      {/* Purple to Indigo */}
+      <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#c084fc" />
+        <stop offset="100%" stopColor="#7c3aed" />
+      </linearGradient>
+      {/* Cyan to Teal */}
+      <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#22d3ee" />
+        <stop offset="100%" stopColor="#0891b2" />
+      </linearGradient>
+      {/* Pink to Rose */}
+      <linearGradient id="pinkGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f472b6" />
+        <stop offset="100%" stopColor="#e11d48" />
+      </linearGradient>
+      {/* Red to Dark Red */}
+      <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f87171" />
+        <stop offset="100%" stopColor="#dc2626" />
+      </linearGradient>
+      {/* Yellow to Amber */}
+      <linearGradient id="yellowGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#facc15" />
+        <stop offset="100%" stopColor="#d97706" />
+      </linearGradient>
+      {/* Gray to Charcoal */}
+      <linearGradient id="grayGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#94a3b8" />
+        <stop offset="100%" stopColor="#475569" />
+      </linearGradient>
+    </defs>
+  );
+}
 
 export function SizeChart({ data }) {
   const chartData = [
@@ -24,6 +78,7 @@ export function SizeChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -43,9 +98,9 @@ export function SizeChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -54,12 +109,14 @@ export function SizeChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barPrimary} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#smallGrad)";
+              if (index === 1) fill = "url(#mediumGrad)";
+              if (index === 2) fill = "url(#largeGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -81,6 +138,7 @@ export function DomainChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -100,9 +158,9 @@ export function DomainChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -111,12 +169,15 @@ export function DomainChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barSecondary} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#greenGrad)";
+              if (index === 1) fill = "url(#purpleGrad)";
+              if (index === 2) fill = "url(#cyanGrad)";
+              if (index === 3) fill = "url(#pinkGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -137,6 +198,7 @@ export function VelocityChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -156,9 +218,9 @@ export function VelocityChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -167,12 +229,14 @@ export function VelocityChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barMuted} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#greenGrad)";
+              if (index === 1) fill = "url(#smallGrad)";
+              if (index === 2) fill = "url(#redGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -193,6 +257,7 @@ export function DiscussionChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -212,9 +277,9 @@ export function DiscussionChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -223,12 +288,14 @@ export function DiscussionChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barDark} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#grayGrad)";
+              if (index === 1) fill = "url(#mediumGrad)";
+              if (index === 2) fill = "url(#largeGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -250,6 +317,7 @@ export function IntentChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -269,9 +337,9 @@ export function IntentChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -280,12 +348,15 @@ export function IntentChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barPrimary} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#smallGrad)";
+              if (index === 1) fill = "url(#redGrad)";
+              if (index === 2) fill = "url(#purpleGrad)";
+              if (index === 3) fill = "url(#grayGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -307,6 +378,7 @@ export function RiskChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
+          <ChartGradients />
           <XAxis 
             dataKey="name" 
             stroke={COLORS.text} 
@@ -326,9 +398,9 @@ export function RiskChart({ data }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
-                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
-                    <p className="text-neutral-50 mt-0.5">
+                  <div className="bg-[#141415] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-slate-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-slate-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -337,12 +409,15 @@ export function RiskChart({ data }) {
               return null;
             }}
           />
-          <Bar 
-            dataKey="value" 
-            fill={COLORS.barSecondary} 
-            radius={[0, 0, 0, 0]} 
-            maxBarSize={28}
-          />
+          <Bar dataKey="value" maxBarSize={28}>
+            {chartData.map((entry, index) => {
+              let fill = "url(#greenGrad)";
+              if (index === 1) fill = "url(#yellowGrad)";
+              if (index === 2) fill = "url(#mediumGrad)";
+              if (index === 3) fill = "url(#redGrad)";
+              return <Cell key={`cell-${index}`} fill={fill} />;
+            })}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
