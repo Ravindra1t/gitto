@@ -476,9 +476,23 @@ YOUR DIRECTIVES IN PHASE 2:
 Remember: You are evaluating code quality, identifying bottlenecks, and keeping the engineering team accountable. Be objective, factual, and ruthless about codebase health.
 """
 
+            sanitized_messages = []
+            for msg in chat_session.get("messages", []):
+                sanitized_msg = {
+                    "role": msg.get("role"),
+                    "content": msg.get("content")
+                }
+                if "tool_calls" in msg:
+                    sanitized_msg["tool_calls"] = msg["tool_calls"]
+                if "tool_call_id" in msg:
+                    sanitized_msg["tool_call_id"] = msg["tool_call_id"]
+                if "name" in msg:
+                    sanitized_msg["name"] = msg["name"]
+                sanitized_messages.append(sanitized_msg)
+
             conversation = [
                 {"role": "system", "content": system_prompt}
-            ] + chat_session["messages"]
+            ] + sanitized_messages
 
             final_reply = "No response generated."
             for turn in range(10):
