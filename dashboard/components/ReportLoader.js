@@ -45,18 +45,18 @@ export default function ReportLoader({ owner, repo }) {
 
   if (error) {
     return (
-      <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
-        <div className="w-full max-w-md border border-red-200 bg-white rounded-lg p-8 text-center space-y-5 shadow-sm">
-          <div className="inline-flex p-3 rounded-full bg-red-50 border border-red-100 text-red-500">
-            <AlertCircle className="w-6 h-6" />
+      <div className="flex-grow flex items-center justify-center bg-[#0a0a0a] px-6 py-12">
+        <div className="w-full max-w-sm border border-red-900/50 bg-[#141414] rounded-none p-8 text-center space-y-6">
+          <div className="inline-flex p-3 rounded-none bg-red-950/20 border border-red-900/30 text-red-500">
+            <AlertCircle className="w-5 h-5 animate-pulse" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-xs font-mono uppercase text-red-600 font-bold">Analysis Failed</h2>
-            <p className="text-[11px] text-zinc-500 font-mono">
+            <h2 className="text-xs font-mono uppercase text-red-400 font-bold tracking-wider">Analysis Failed</h2>
+            <p className="text-[10px] text-neutral-500 font-mono">
               Target: {owner}/{repo}
             </p>
           </div>
-          <p className="text-xs text-zinc-600 leading-relaxed max-w-xs mx-auto">
+          <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto">
             {error}
           </p>
           <div className="pt-2">
@@ -65,7 +65,7 @@ export default function ReportLoader({ owner, repo }) {
               <input type="hidden" name="repo" value={repo} />
               <button
                 type="submit"
-                className="w-full inline-flex h-9 items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono font-bold rounded cursor-pointer transition-colors"
+                className="w-full inline-flex h-10 items-center justify-center bg-white hover:bg-neutral-200 text-[#0a0a0a] text-xs font-mono font-bold rounded-none cursor-pointer transition-colors"
               >
                 Go Back Home
               </button>
@@ -77,20 +77,20 @@ export default function ReportLoader({ owner, repo }) {
   }
 
   return (
-    <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
-      <div className="w-full max-w-md border border-zinc-200 bg-white rounded-lg p-8 text-center space-y-5 shadow-sm">
-        <div className="inline-flex p-3 rounded-full bg-zinc-50 border border-zinc-100 text-zinc-900 animate-spin">
-          <Loader2 className="w-6 h-6" />
+    <div className="flex-grow flex items-center justify-center bg-[#0a0a0a] px-6 py-12">
+      <div className="w-full max-w-sm border border-white/10 bg-[#141414] rounded-none p-8 text-center space-y-6">
+        <div className="inline-flex p-3 rounded-none bg-neutral-900 border border-white/10 text-white animate-spin">
+          <Loader2 className="w-5 h-5" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-xs font-mono uppercase text-zinc-900 font-bold">
+          <h2 className="text-xs font-mono uppercase text-neutral-50 font-bold tracking-wider">
             {status === 'PENDING' ? 'Waiting in Queue...' : 'Analysis in Progress...'}
           </h2>
-          <p className="text-[11px] text-zinc-500 font-mono">
+          <p className="text-[10px] text-neutral-500 font-mono">
             Target: {owner}/{repo}
           </p>
         </div>
-        <p className="text-xs text-zinc-500 leading-relaxed max-w-xs mx-auto">
+        <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto">
           {status === 'PENDING'
             ? 'The background worker is currently busy. Your repository is in the queue and will start shortly.'
             : 'Our background worker has picked up this repository and is currently analyzing the last 50 merged pull requests.'}
@@ -101,13 +101,13 @@ export default function ReportLoader({ owner, repo }) {
             <input type="hidden" name="repo" value={repo} />
             <button
               type="submit"
-              className="w-full inline-flex h-9 items-center justify-center text-zinc-400 hover:text-zinc-600 text-xs font-mono transition-colors cursor-pointer border border-transparent hover:border-zinc-200 rounded"
+              className="w-full inline-flex h-9 items-center justify-center text-neutral-500 hover:text-neutral-300 text-xs font-mono transition-colors cursor-pointer border border-transparent hover:border-white/10 rounded-none"
             >
               Cancel Analysis
             </button>
           </form>
         </div>
-        <div className="text-[10px] text-zinc-400 font-mono pt-2">
+        <div className="text-[9px] text-neutral-600 font-mono tracking-wider">
           Checking status in the background. Do not refresh.
         </div>
       </div>

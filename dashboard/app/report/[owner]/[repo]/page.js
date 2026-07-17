@@ -3,24 +3,24 @@ import clientPromise from '../../../../lib/mongodb';
 import ReportLoader from '../../../../components/ReportLoader';
 import { SizeChart, DomainChart, VelocityChart, DiscussionChart, IntentChart, RiskChart } from '../../../../components/ReportChart';
 import InvestigatorChat from '../../../../components/InvestigatorChat';
+import { ReportContainer, ReportCard } from '../../../../components/ReportLayoutWrapper';
 import { GitPullRequest, Calendar, ArrowLeft, Database, HelpCircle, Clock, ShieldCheck } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-
-// Lightweight server-side markdown parser
+// Lightweight server-side markdown parser (adapted for Gitto's dark theme)
 function renderMarkdown(text) {
   if (!text) return null;
   const lines = text.split('\n');
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 font-sans">
       {lines.map((line, idx) => {
         const cleanLine = line.trim();
         
         // Headers
         if (cleanLine.startsWith('### ')) {
           return (
-            <h3 key={idx} className="text-xs font-mono uppercase tracking-wider font-extrabold text-zinc-900 mt-6 mb-2 border-b border-zinc-100 pb-1.5">
+            <h3 key={idx} className="text-xs font-mono uppercase tracking-wider font-extrabold text-neutral-50 mt-6 mb-2 border-b border-white/10 pb-1.5">
               {cleanLine.slice(4)}
             </h3>
           );
@@ -31,8 +31,8 @@ function renderMarkdown(text) {
           const content = cleanLine.slice(2);
           const parts = content.split('**');
           return (
-            <li key={idx} className="ml-4 list-disc text-xs text-zinc-600 my-1 leading-relaxed">
-              {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-zinc-950">{part}</strong> : part)}
+            <li key={idx} className="ml-4 list-disc text-xs text-neutral-400 my-1 leading-relaxed">
+              {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-neutral-50">{part}</strong> : part)}
             </li>
           );
         }
@@ -45,8 +45,8 @@ function renderMarkdown(text) {
         // Standard paragraphs with bold text support
         const parts = cleanLine.split('**');
         return (
-          <p key={idx} className="text-xs text-zinc-600 leading-relaxed">
-            {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-zinc-950">{part}</strong> : part)}
+          <p key={idx} className="text-xs text-neutral-400 leading-relaxed">
+            {parts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="font-bold text-neutral-50">{part}</strong> : part)}
           </p>
         );
       })}
@@ -106,18 +106,18 @@ export default async function ReportPage({ params }) {
   // 1. Connection Error
   if (connectionError) {
     return (
-      <div className="flex-grow flex items-center justify-center bg-zinc-50 px-4 py-12">
-        <div className="w-full max-w-md border border-zinc-200 bg-white rounded-lg p-6 text-center space-y-4 shadow-sm">
-          <div className="inline-flex p-3 rounded-full bg-zinc-50 text-zinc-600 border border-zinc-100">
-            <Database className="w-6 h-6" />
+      <div className="flex-grow flex items-center justify-center bg-[#0a0a0a] px-6 py-12">
+        <div className="w-full max-w-sm border border-white/10 bg-[#141414] rounded-none p-8 text-center space-y-6">
+          <div className="inline-flex p-3 rounded-none bg-neutral-900 border border-white/10 text-neutral-400">
+            <Database className="w-5 h-5 animate-pulse" />
           </div>
-          <h2 className="text-xs font-mono uppercase text-zinc-900 font-bold">Connection Failed</h2>
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            Could not establish a connection to the MongoDB Atlas cluster. Please check network logs.
+          <h2 className="text-xs font-mono uppercase text-neutral-50 font-bold tracking-wider">Connection Failed</h2>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Could not establish a connection to the MongoDB Atlas database cluster.
           </p>
           <Link
             href="/"
-            className="inline-flex h-9 px-4 items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono font-bold rounded transition-colors"
+            className="inline-flex h-10 px-4 items-center justify-center bg-white hover:bg-neutral-200 text-[#0a0a0a] text-xs font-mono font-bold rounded-none transition-colors"
           >
             Go Back
           </Link>
@@ -131,195 +131,198 @@ export default async function ReportPage({ params }) {
     return <ReportLoader owner={owner} repo={repo} />;
   }
 
-  // 3. Report Screen
+  // 3. Report Screen (Fully styled with Stark dark mode layout)
   return (
-    <div className="flex-grow bg-zinc-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex-grow bg-[#0a0a0a] py-12 px-6">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Navigation & Header */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-mono text-zinc-500 hover:text-zinc-900 transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-mono text-neutral-500 hover:text-neutral-300 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Search
           </Link>
-          <span className="text-[10px] font-mono text-zinc-400 border border-zinc-200 bg-white px-2 py-0.5 rounded flex items-center gap-1.5">
+          <span className="text-[9px] font-mono text-neutral-400 border border-white/10 bg-[#141414] px-2 py-0.5 rounded-none flex items-center gap-1.5 uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Cached Report
           </span>
         </div>
 
-        {/* Repository info banner */}
-        <div className="border border-zinc-200 bg-white rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm hover:border-zinc-300 transition-colors">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-zinc-50 border border-zinc-200 rounded text-zinc-700">
-                <GitPullRequest className="w-4 h-4" />
+        {/* Animation container */}
+        <ReportContainer>
+          
+          {/* Repository info banner */}
+          <ReportCard className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-neutral-900 border border-white/10 rounded-none text-white">
+                  <GitPullRequest className="w-4 h-4" />
+                </div>
+                <h1 className="text-sm font-mono font-extrabold tracking-tight text-neutral-50 uppercase">
+                  {report.repo_name}
+                </h1>
               </div>
-              <h1 className="text-md font-mono font-bold tracking-tight text-zinc-900">
-                {report.repo_name}
-              </h1>
+              <p className="text-xs text-neutral-500 font-sans">
+                PR Analytics based on the last 50 merged pull requests.
+              </p>
             </div>
-            <p className="text-xs text-zinc-400">
-              PR Analysis Report based on the last 50 merged pull requests.
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 sm:self-center">
-            <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Analyzed: {formatDate(report.analyzed_at)}</span>
-          </div>
-        </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-500 sm:self-center">
+              <Calendar className="w-3.5 h-3.5 text-neutral-600" />
+              <span>ANALYZED: {formatDate(report.analyzed_at)}</span>
+            </div>
+          </ReportCard>
 
-        {/* Key Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Test Inclusion Rate Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 flex items-center justify-between shadow-sm hover:border-zinc-300 hover:shadow transition-all duration-300">
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">
-                Test Inclusion Rate
-              </span>
-              <div className="text-2xl font-mono font-bold text-zinc-900">
-                {report.test_inclusion_rate != null ? `${report.test_inclusion_rate.toFixed(1)}%` : 'N/A'}
+          {/* Key Metrics Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Test Inclusion Rate Card */}
+            <ReportCard className="flex items-center justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                  Test Inclusion Rate
+                </span>
+                <div className="text-xl font-mono font-bold text-neutral-50">
+                  {report.test_inclusion_rate != null ? `${report.test_inclusion_rate.toFixed(1)}%` : 'N/A'}
+                </div>
               </div>
-            </div>
-            <div className="p-3 bg-zinc-50 border border-zinc-100 rounded text-zinc-800">
-              <ShieldCheck className="w-6 h-6 animate-pulse" />
-            </div>
-          </div>
-
-          {/* Time to First Review Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 flex items-center justify-between shadow-sm hover:border-zinc-300 hover:shadow transition-all duration-300">
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">
-                Time-To-First-Review
-              </span>
-              <div className="text-2xl font-mono font-bold text-zinc-900">
-                {report.time_to_first_review != null ? `${report.time_to_first_review.toFixed(1)} hrs` : 'N/A'}
+              <div className="p-3 bg-neutral-900 border border-white/10 rounded-none text-neutral-400">
+                <ShieldCheck className="w-5 h-5" />
               </div>
-            </div>
-            <div className="p-3 bg-zinc-50 border border-zinc-100 rounded text-zinc-800">
-              <Clock className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
+            </ReportCard>
 
-        {/* 6-Chart Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Sizes Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                PR Size Tiers
+            {/* Time to First Review Card */}
+            <ReportCard className="flex items-center justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                  Time-To-First-Review
+                </span>
+                <div className="text-xl font-mono font-bold text-neutral-50">
+                  {report.time_to_first_review != null ? `${report.time_to_first_review.toFixed(1)} hrs` : 'N/A'}
+                </div>
+              </div>
+              <div className="p-3 bg-neutral-900 border border-white/10 rounded-none text-neutral-400">
+                <Clock className="w-5 h-5" />
+              </div>
+            </ReportCard>
+          </div>
+
+          {/* Grid Layout for Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Sizes Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  PR Size Tiers
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Lines Changed</span>
+              </div>
+              <SizeChart data={report.size_tiers} />
+            </ReportCard>
+
+            {/* Domains Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  Codebase Domains
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Affected Scope</span>
+              </div>
+              <DomainChart data={report.domains} />
+            </ReportCard>
+
+            {/* Velocity Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  Merge Velocity
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Merge Speed</span>
+              </div>
+              {report.merge_velocity ? (
+                <VelocityChart data={report.merge_velocity} />
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-[#0a0a0a] border border-white/10 border-dashed rounded-none font-mono text-xs text-neutral-600 gap-1.5">
+                  <HelpCircle className="w-5 h-5 text-neutral-700" />
+                  <span>No velocity data</span>
+                </div>
+              )}
+            </ReportCard>
+
+            {/* Discussion Density Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  Discussion Density
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Review Comments</span>
+              </div>
+              {report.discussion_density ? (
+                <DiscussionChart data={report.discussion_density} />
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-[#0a0a0a] border border-white/10 border-dashed rounded-none font-mono text-xs text-neutral-600 gap-1.5">
+                  <HelpCircle className="w-5 h-5 text-neutral-700" />
+                  <span>No discussion data</span>
+                </div>
+              )}
+            </ReportCard>
+
+            {/* PR Intent Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  PR Intent
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Changes Category</span>
+              </div>
+              {report.pr_intent ? (
+                <IntentChart data={report.pr_intent} />
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-[#0a0a0a] border border-white/10 border-dashed rounded-none font-mono text-xs text-neutral-600 gap-1.5">
+                  <HelpCircle className="w-5 h-5 text-neutral-700" />
+                  <span>No intent data</span>
+                </div>
+              )}
+            </ReportCard>
+
+            {/* Risk Score Chart Card */}
+            <ReportCard className="space-y-4">
+              <div className="border-b border-white/10 pb-3 flex justify-between items-center">
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                  Risk Score
+                </h2>
+                <span className="text-[9px] font-mono text-neutral-600 uppercase tracking-wider">Safety Rating</span>
+              </div>
+              {report.risk_score ? (
+                <RiskChart data={report.risk_score} />
+              ) : (
+                <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-[#0a0a0a] border border-white/10 border-dashed rounded-none font-mono text-xs text-neutral-600 gap-1.5">
+                  <HelpCircle className="w-5 h-5 text-neutral-700" />
+                  <span>No risk data</span>
+                </div>
+              )}
+            </ReportCard>
+
+          </div>
+
+          {/* Qualitative LLM Summary Section */}
+          <ReportCard className="space-y-4">
+            <div className="border-b border-white/10 pb-3">
+              <h2 className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 font-extrabold">
+                Reviewer Dynamics & Code Patterns
               </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Lines Changed</span>
             </div>
-            <SizeChart data={report.size_tiers} />
-          </div>
-
-          {/* Domains Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                Codebase Domains
-              </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Affected Scope</span>
+            <div>
+              {renderMarkdown(report.llm_summaries)}
             </div>
-            <DomainChart data={report.domains} />
-          </div>
+          </ReportCard>
 
-          {/* Velocity Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                Merge Velocity
-              </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Duration Tiers</span>
-            </div>
-            {report.merge_velocity ? (
-              <VelocityChart data={report.merge_velocity} />
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
-                <HelpCircle className="w-5 h-5 text-zinc-300" />
-                <span>No velocity data</span>
-                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
-              </div>
-            )}
-          </div>
+          {/* Interactive Chat Section */}
+          <InvestigatorChat owner={owner} repo={repo} />
 
-          {/* Discussion Density Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                Discussion Density
-              </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Review Comments</span>
-            </div>
-            {report.discussion_density ? (
-              <DiscussionChart data={report.discussion_density} />
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
-                <HelpCircle className="w-5 h-5 text-zinc-300" />
-                <span>No discussion data</span>
-                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
-              </div>
-            )}
-          </div>
-
-          {/* PR Intent Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                PR Intent
-              </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Changes Category</span>
-            </div>
-            {report.pr_intent ? (
-              <IntentChart data={report.pr_intent} />
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
-                <HelpCircle className="w-5 h-5 text-zinc-300" />
-                <span>No intent data</span>
-                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
-              </div>
-            )}
-          </div>
-
-          {/* Risk Score Chart Card */}
-          <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-            <div className="border-b border-zinc-100 pb-3 flex justify-between items-center">
-              <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-                Risk Score
-              </h2>
-              <span className="text-[10px] font-mono text-zinc-400">Safety Rating</span>
-            </div>
-            {report.risk_score ? (
-              <RiskChart data={report.risk_score} />
-            ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-center p-4 bg-zinc-50 border border-zinc-200 border-dashed rounded font-mono text-xs text-zinc-400 gap-1.5">
-                <HelpCircle className="w-5 h-5 text-zinc-300" />
-                <span>No risk data</span>
-                <span className="text-[10px] text-zinc-500 max-w-xs">Run a new analysis to extract this metric.</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Qualitative LLM Summary Section */}
-        <div className="border border-zinc-200 bg-white rounded-lg p-6 space-y-4 shadow-sm hover:border-zinc-300 transition-colors">
-          <div className="border-b border-zinc-100 pb-3">
-            <h2 className="text-xs font-mono uppercase text-zinc-500 font-bold">
-              Reviewer Dynamics & Code Patterns
-            </h2>
-          </div>
-          <div className="font-sans">
-            {renderMarkdown(report.llm_summaries)}
-          </div>
-        </div>
-
-        {/* Interactive Chat Section */}
-        <InvestigatorChat owner={owner} repo={repo} />
+        </ReportContainer>
 
       </div>
     </div>

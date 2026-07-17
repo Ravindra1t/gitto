@@ -33,14 +33,8 @@ async def inspect():
             await session.initialize()
             tools_response = await session.list_tools()
             
-            target_tools = ['list_pull_requests', 'get_pull_request', 'get_pull_request_comments', 'get_pull_request_files']
-            for name in target_tools:
-                tool = next((t for t in tools_response.tools if t.name == name), None)
-                if tool:
-                    print(f"=== {name} ===")
-                    print(json.dumps(tool.inputSchema, indent=2))
-                else:
-                    print(f"=== {name} not found ===")
+            for t in tools_response.tools:
+                print(t.name)
 
 if __name__ == "__main__":
     asyncio.run(inspect())

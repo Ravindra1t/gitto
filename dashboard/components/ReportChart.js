@@ -1,14 +1,13 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Monochromatic palette shades
 const COLORS = {
-  primary: '#18181b',   // Zinc-900 (dark gray)
-  secondary: '#71717a', // Zinc-500 (medium gray)
-  tertiary: '#a1a1aa',  // Zinc-400 (light-medium gray)
-  light: '#d4d4d8',     // Zinc-300 (light gray)
-  border: '#e4e4e7'     // Zinc-200 (subtle grid line)
+  text: '#737373',       // neutral-500
+  barPrimary: '#ffffff', // Stark white
+  barSecondary: '#a3a3a3', // neutral-400
+  barMuted: '#525252',   // neutral-600
+  barDark: '#262626',    // neutral-800
 };
 
 export function SizeChart({ data }) {
@@ -25,29 +24,28 @@ export function SizeChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-900 mt-0.5">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -58,9 +56,9 @@ export function SizeChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.primary} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barPrimary} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -83,29 +81,28 @@ export function DomainChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-900 mt-0.5">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -116,9 +113,9 @@ export function DomainChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.secondary} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barSecondary} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -140,29 +137,28 @@ export function VelocityChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-900 mt-0.5">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -173,9 +169,9 @@ export function VelocityChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.tertiary} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barMuted} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -197,29 +193,28 @@ export function DiscussionChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-900 mt-0.5">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -230,9 +225,9 @@ export function DiscussionChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.light} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barDark} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -255,29 +250,28 @@ export function IntentChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-950 mt-0.5 font-bold">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -288,9 +282,9 @@ export function IntentChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.primary} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barPrimary} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -313,29 +307,28 @@ export function RiskChart({ data }) {
           data={chartData}
           margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
           <XAxis 
             dataKey="name" 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
           />
           <YAxis 
-            stroke={COLORS.secondary} 
+            stroke={COLORS.text} 
             tickLine={false} 
             axisLine={false}
-            tick={{ fill: COLORS.secondary, fontSize: 10 }}
+            tick={{ fill: COLORS.text, fontSize: 9 }}
             unit="%"
           />
           <Tooltip
-            cursor={{ fill: 'rgba(24, 24, 27, 0.02)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white border border-zinc-200 p-2 rounded font-mono text-[11px] shadow-sm">
-                    <p className="text-zinc-500 font-bold">{payload[0].payload.name}</p>
-                    <p className="text-zinc-950 mt-0.5 font-bold">
+                  <div className="bg-[#141414] border border-white/10 p-2.5 rounded-none font-mono text-[10px] shadow-2xl">
+                    <p className="text-neutral-500 uppercase tracking-wider">{payload[0].payload.name}</p>
+                    <p className="text-neutral-50 mt-0.5">
                       Share: {payload[0].value.toFixed(1)}%
                     </p>
                   </div>
@@ -346,9 +339,9 @@ export function RiskChart({ data }) {
           />
           <Bar 
             dataKey="value" 
-            fill={COLORS.secondary} 
-            radius={[3, 3, 0, 0]} 
-            maxBarSize={35}
+            fill={COLORS.barSecondary} 
+            radius={[0, 0, 0, 0]} 
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>
