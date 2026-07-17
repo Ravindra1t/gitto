@@ -68,12 +68,36 @@ export async function POST(request, { params }) {
       }
     );
 
+    // Synchronous poll: Wait for the Python backend worker to process the session via MongoDB queue
+    const startTime = Date.now();
+    const timeout = 35000; // 35 seconds max wait time
+    let finalSession = result;
+
+    while (Date.now() - startTime < timeout) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const currentSession = await db.collection('Chat_Sessions').findOne({ _id: repoId });
+      if (currentSession) {
+        finalSession = currentSession;
+        if (currentSession.status === 'COMPLETED' || currentSession.status === 'FAILED') {
+          break;
+        }
+      }
+    }
+
+    if (finalSession.status === 'FAILED') {
+      return NextResponse.json({
+        error: finalSession.error || 'Python backend failed to process chat request',
+        status: 'FAILED'
+      }, { status: 500 });
+    }
+
     // Sanitize the returned messages array by mapping over it to ensure ONLY role and content are sent
-    const returnedMessages = (result.messages || []).map(({ role, content }) => ({ role, content }));
+    const returnedMessages = (finalSession.messages || []).map(({ role, content }) => ({ role, content }));
 
     return NextResponse.json({
       messages: returnedMessages,
-      status: result.status || 'PENDING'
+      status: finalSession.status || 'PENDING'
     });
   } catch (error) {
     console.error('Error sending chat message:', error);
