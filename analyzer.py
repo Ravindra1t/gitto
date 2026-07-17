@@ -41,11 +41,25 @@ def map_mcp_to_llm_tool(mcp_tool):
     parameters.pop("$schema", None)
     parameters.pop("additionalProperties", None)
     
-    # Standardize 'number' to 'integer' for API compatibility
+    # Simplify properties to prevent parser validation issues (like min, max, enum mismatch)
     if "properties" in parameters:
+        simplified_props = {}
         for prop_name, prop_val in parameters["properties"].items():
-            if isinstance(prop_val, dict) and prop_val.get("type") == "number":
-                prop_val["type"] = "integer"
+            if isinstance(prop_val, dict):
+                simplified_val = {
+                    "type": prop_val.get("type", "string")
+                }
+                if "description" in prop_val:
+                    simplified_val["description"] = prop_val["description"]
+                
+                # Standardize 'number' to 'integer' for API compatibility
+                if simplified_val["type"] == "number":
+                    simplified_val["type"] = "integer"
+                    
+                simplified_props[prop_name] = simplified_val
+            else:
+                simplified_props[prop_name] = prop_val
+        parameters["properties"] = simplified_props
     
     return {
         "type": "function",
@@ -177,10 +191,10 @@ async def call_llm_with_retry(llm_client, model_name, messages, tools, tool_choi
         "model": model_name,
         "messages": messages
     }
-    if tools is not None:
+    if tools is not None and len(tools) > 0:
         kwargs["tools"] = tools
-    if tool_choice is not None:
-        kwargs["tool_choice"] = tool_choice
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
 
     for attempt in range(max_retries):
         try:
@@ -493,6 +507,7 @@ YOUR DIRECTIVES IN PHASE 2:
    - Use `search_issues` or other tools to find pull requests or issues.
    - Use `get_file_contents` to read the actual code to answer architecture questions.
    - SCHEMA ADHERENCE: You MUST ONLY pass parameters that are explicitly defined in the schema of the tool you are calling. Do NOT add hallucinated parameters (for example, do not pass "sort", "order", "direction", or "state" to `search_issues` as its schema ONLY accepts "q", "page", and "per_page").
+   - NATIVE TOOL CALLING ONLY: You have access to tools. You MUST use the native tool calling format. NEVER output raw text like <function> or XML tags to call a tool.
 3. CONVERSATIONAL RESTRICTION DURING TOOL CALLS:
    - When you invoke a tool, you MUST output ONLY the tool calls.
    - Do NOT output any thought process, conversational text, explanations, or questions in the same turn that you call tools. Any explanations or answers must be returned only after you have received the tool outputs.
