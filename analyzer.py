@@ -430,6 +430,25 @@ async def handle_chat_session(chat_session, llm_client, model_name, db):
     repo_name = chat_session.get("_id")
     owner, repo = repo_name.split("/", 1)
     
+    # Retrieve repository cached report context
+    report_doc = await asyncio.to_thread(db["PR_Reports"].find_one, {"_id": repo_name})
+    report_context = ""
+    if report_doc:
+        report_context = f"""
+Here is the cached analysis report context for this repository:
+- Size Tiers: {json.dumps(report_doc.get("size_tiers", {}))}
+- Domains: {json.dumps(report_doc.get("domains", {}))}
+- Merge Velocity: {json.dumps(report_doc.get("merge_velocity", {}))}
+- Discussion Density: {json.dumps(report_doc.get("discussion_density", {}))}
+- PR Intent: {json.dumps(report_doc.get("pr_intent", {}))}
+- Risk Score: {json.dumps(report_doc.get("risk_score", {}))}
+- Test Inclusion Rate: {report_doc.get("test_inclusion_rate", 0.0)}%
+- Time-to-First-Review: {report_doc.get("time_to_first_review", 0.0)} hours
+
+Qualitative Summary:
+{report_doc.get("llm_summaries", "")}
+"""
+
     print(f" -> Launching GitHub MCP server subprocess for chat investigation on {owner}/{repo}...")
     
     # Prepare subprocess environment
@@ -460,20 +479,24 @@ async def handle_chat_session(chat_session, llm_client, model_name, db):
             mcp_tools = tools_response.tools
             llm_tools = [map_mcp_to_llm_tool(t) for t in mcp_tools]
 
-            system_prompt = """You are an elite Staff-Level DevOps and Codebase Analyst Agent. You have a dual mandate: to provide deep, qualitative analytics on GitHub Pull Requests, and to act as an interactive investigator for the user.
-
+            system_prompt = f"""You are an elite Staff-Level DevOps and Codebase Analyst Agent. You have a dual mandate: to provide deep, qualitative analytics on GitHub Pull Requests, and to act as an interactive investigator for the user.
+ 
 You operate in Phase 2: Interactive Investigation Mode. The user will ask specific, ad-hoc questions about the repository, developers, or specific PRs.
 
+You are currently investigating the repository: {owner}/{repo}
+{report_context}
+ 
 YOUR DIRECTIVES IN PHASE 2:
 1. DO NOT GUESS: If the user asks a specific question about code, architecture, or a developer that you do not have in your immediate context, you MUST use your available tools to fetch the exact data.
 2. TOOL USAGE: 
    - Use `get_pull_request_files` or other PR tools to fetch specific diffs, comments, or commit history for a PR.
    - Use `search_issues` or other tools to find pull requests or issues.
    - Use `get_file_contents` to read the actual code to answer architecture questions.
-3. BE DECISIVE: When you reply to the user, be concise, highly technical, and direct. Do not use corporate fluff. Cite the specific PR numbers or file names you found during your tool execution.
-4. FORMAT: Respond in clean Markdown for readability.
-
-Remember: You are evaluating code quality, identifying bottlenecks, and keeping the engineering team accountable. Be objective, factual, and ruthless about codebase health.
+3. CONVERSATIONAL RESTRICTION DURING TOOL CALLS:
+   - When you invoke a tool, you MUST output ONLY the tool calls.
+   - Do NOT output any thought process, conversational text, explanations, or questions in the same turn that you call tools. Any explanations or answers must be returned only after you have received the tool outputs.
+4. BE DECISIVE: When you reply to the user, be concise, highly technical, and direct. Cite the specific PR numbers or file names you found during your tool execution.
+5. FORMAT: Respond in clean Markdown for readability.
 """
 
             sanitized_messages = []
